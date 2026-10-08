@@ -1,0 +1,4 @@
+__pycache__
+__init__.py
+.env
+legal_data/*.xml
