@@ -4,7 +4,7 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 
-from Backend.util.law_data_downloader import (
+from Backend.utils.law_data_downloader import (
     LAW_DATASET_URL,
     REGULAR_DATASET_URL,
     build_output_filename,
