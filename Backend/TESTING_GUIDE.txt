@@ -1,0 +1,20 @@
+API 快速測試
+============
+
+1. 在 Backend/.env 設定 GEMINI_API_KEY。
+2. PowerShell 進入 Backend，安裝套件並啟動：
+   cd .\Backend
+   python -m pip install -r requirements.txt
+   uvicorn main:app --reload
+3. 開啟 Swagger：http://127.0.0.1:8000/docs
+4. 測試 GET /（健康檢查），再用 POST /api/analyze-scenario：按 Try it out，貼上情境 JSON 後按 Execute。
+5. 確認回傳 200，且 JSON 含 status、department、scenario_analyzed、ai_analysis。
+
+測試情境（擇一貼上）
+--------------------
+
+1. {"department":"資訊與法遵","scenario":"未經同意將客戶病歷資料提供給行銷廠商。"}
+2. {"department":"資訊安全","scenario":"員工使用同事帳號查閱非職務相關的客戶保單。"}
+3. {"department":"保險通路","scenario":"銷售人員宣稱投資型保單保證獲利。"}
+
+請使用虛構情境，不要輸入真實客戶資料。API Key 請勿上傳至版控。
