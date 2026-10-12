@@ -3,3 +3,4 @@ uvicorn
 pydantic
 python-dotenv
 google-generativeai
+sqlalchemy>=2.0,<3.0
