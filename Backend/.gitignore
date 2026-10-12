@@ -3,3 +3,4 @@ __init__.py
 .env
 legal_data/*.xml
 *.db
+!測試資料*.xml

@@ -1,27 +1,37 @@
 """法規與風險情報助手的 FastAPI 後端入口。"""
 
-import os
+import sys
 from pathlib import Path
-from typing import Any
+import uvicorn
 
-import google.generativeai as genai
+# Gemini 功能暫停使用，待後續遷移至 google.genai 套件後再啟用。
+# from google import genai
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+# 直接執行此檔案時，將專案根目錄加入模組搜尋路徑，讓 Backend 套件可被匯入。
+if __package__ in {None, ""}:
+    project_root = Path(__file__).resolve().parent.parent
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+
+from Backend.routers.legal_router import app as legal_router
 
 
 # 從與本程式同一個資料夾載入 .env，確保從不同工作目錄啟動也能正確讀取。
 ENV_FILE = Path(__file__).resolve().with_name(".env")
 load_dotenv(dotenv_path=ENV_FILE)
 
-# 讀取 Gemini API Key，並在設定完成後交由 Google Generative AI SDK 使用。
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if GEMINI_API_KEY and GEMINI_API_KEY != "your_api_key_here":
-    genai.configure(api_key=GEMINI_API_KEY)
-else:
-    # 開發時若尚未設定有效金鑰，先提供清楚提示；呼叫分析 API 時會回傳服務錯誤。
-    print("警告：尚未設定有效的 GEMINI_API_KEY，請在 Backend/.env 填入 Gemini API Key。")
+#  讀取 Gemini API Key，並在設定完成後交由 Google Generative AI SDK 使用。
+# GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# if GEMINI_API_KEY and GEMINI_API_KEY != "your_api_key_here":
+#     genai.configure(api_key=GEMINI_API_KEY)
+# else:
+#     # 開發時若尚未設定有效金鑰，先提供清楚提示；呼叫分析 API 時會回傳服務錯誤。
+#     print("警告：尚未設定有效的 GEMINI_API_KEY，請在 Backend/.env 填入 Gemini API Key。")
+
 
 
 # 建立 FastAPI 應用程式，並允許前端從任意來源跨網域呼叫。
@@ -38,6 +48,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(legal_router)
 
 
 # 定義前端送入的情境資料格式；department 未提供時使用通用部門。
@@ -65,43 +76,26 @@ GEMINI_MODEL_NAME = "gemini-3.8-flash"
 
 # 接收情境後組合部門資訊與系統提示，呼叫 Gemini 並以 JSON 回傳分析結果。
 @app.post("/api/analyze-scenario")
-async def analyze_legal_risk(request: ScenarioRequest) -> dict[str, Any]:
-    if not GEMINI_API_KEY or GEMINI_API_KEY == "your_api_key_here":
-        raise HTTPException(
-            status_code=503,
-            detail="Gemini API 尚未設定，請在 Backend/.env 設定有效的 GEMINI_API_KEY。",
-        )
+async def analyze_legal_risk(request: ScenarioRequest) -> dict[str, object]:
+    """回報法規風險分析服務目前暫停。
 
-    full_prompt = (
-        f"{SYSTEM_PROMPT}\n\n"
-        f"部門：{request.department}\n"
-        f"待分析情境：\n{request.scenario}"
+    輸入契約：
+        request 必須是通過 FastAPI 驗證的 ScenarioRequest；目前不會送往外部服務。
+    函式效果：
+        不呼叫 Gemini 或修改外部狀態。
+    輸出結果：
+        固定拋出 HTTPException（503），表示 Gemini 功能暫停使用。
+    """
+    raise HTTPException(
+        status_code=503,
+        detail="Gemini 法規風險分析功能暫停使用。",
     )
-
-    try:
-        # 使用指定的 Gemini 模型產生分析文字。
-        model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-        response = await model.generate_content_async(full_prompt)
-        ai_analysis = response.text
-
-        if not ai_analysis:
-            raise ValueError("Gemini API 未回傳可用的文字內容。")
-
-        return {
-            "status": "success",
-            "department": request.department,
-            "scenario_analyzed": request.scenario,
-            "ai_analysis": ai_analysis,
-        }
-    except Exception as exc:
-        # 將模型呼叫或回應解析錯誤轉為標準 HTTP 錯誤，方便前端處理。
-        raise HTTPException(
-            status_code=502,
-            detail=f"Gemini 法規風險分析失敗：{exc}",
-        ) from exc
 
 
 # 提供簡單的健康檢查端點，確認 API 伺服器可正常回應。
 @app.get("/")
 async def health_check() -> dict[str, str]:
     return {"status": "success", "message": "法規與風險情報助手後端運作正常。"}
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="127.0.0.1", port=8000)
