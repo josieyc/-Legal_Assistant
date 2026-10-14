@@ -59,6 +59,9 @@ class Department(Base):
     department_name: Mapped[str] = mapped_column(Text, nullable=False)
 
     users: Mapped[list[User]] = relationship(back_populates="department")
+    risk_events: Mapped[list[PolicyRiskEvent]] = relationship(
+        back_populates="department"
+    )
 
 
 class User(Base):
@@ -82,7 +85,4 @@ class User(Base):
     industry_links: Mapped[list[UserIndustry]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
-    )
-    assigned_risk_events: Mapped[list[PolicyRiskEvent]] = relationship(
-        back_populates="person_in_charge_user",
     )

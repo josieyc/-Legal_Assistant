@@ -1,11 +1,13 @@
--- 政策風險事件。保留可為 NULL 的 policy_id；待 firm_policy 建置後再加入外鍵約束。
+-- 法規異動衍生的政策風險事件。
 CREATE TABLE IF NOT EXISTS policy_risk_event (
     risk_event_id INTEGER PRIMARY KEY,
     act_change_event_id INTEGER NOT NULL,
     policy_id INTEGER,
-    person_in_charge INTEGER,
+    policy_article_id INTEGER,
+    department_id INTEGER,
     obligation_intensity TEXT,
     deadline TEXT,
+    topic TEXT,
     state TEXT NOT NULL,
     reason TEXT,
     suggest_next_step TEXT,
@@ -15,7 +17,14 @@ CREATE TABLE IF NOT EXISTS policy_risk_event (
         REFERENCES act_change_event (act_change_event_id)
         ON UPDATE CASCADE
         ON DELETE RESTRICT,
-    FOREIGN KEY (person_in_charge) REFERENCES user (user_id)
+    FOREIGN KEY (policy_id) REFERENCES firm_policy (policy_id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL,
+    FOREIGN KEY (policy_article_id)
+        REFERENCES firm_policy_article (policy_article_id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL,
+    FOREIGN KEY (department_id) REFERENCES department (department_id)
         ON UPDATE CASCADE
         ON DELETE SET NULL
 );
@@ -26,5 +35,8 @@ CREATE INDEX IF NOT EXISTS idx_policy_risk_event_act_change_event_id
 CREATE INDEX IF NOT EXISTS idx_policy_risk_event_policy_id
     ON policy_risk_event (policy_id);
 
-CREATE INDEX IF NOT EXISTS idx_policy_risk_event_person_in_charge
-    ON policy_risk_event (person_in_charge);
+CREATE INDEX IF NOT EXISTS idx_policy_risk_event_policy_article_id
+    ON policy_risk_event (policy_article_id);
+
+CREATE INDEX IF NOT EXISTS idx_policy_risk_event_department_id
+    ON policy_risk_event (department_id);

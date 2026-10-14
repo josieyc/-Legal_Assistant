@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from sqlalchemy import Text, create_engine, inspect
+from sqlalchemy import LargeBinary, Text, create_engine, inspect
 from sqlalchemy.orm import Session
 
 from Backend.models import (
@@ -13,6 +13,9 @@ from Backend.models import (
     ActIndustry,
     Base,
     Department,
+    FirmPolicy,
+    FirmPolicyArticle,
+    FirmPolicyChangeRecord,
     Industry,
     PolicyRiskEvent,
     User,
@@ -33,12 +36,15 @@ class ModelMappingTests(unittest.TestCase):
         self.engine.dispose()
 
     def test_metadata_contains_every_requested_table(self) -> None:
-        """確認 ORM metadata 包含 ER 圖中目前已建置的八張表。"""
+        """確認 ORM metadata 包含 SQL schema 定義的十一張表。"""
         expected_tables = {
             "act",
             "act_change_event",
             "act_industry",
             "department",
+            "firm_policy",
+            "firm_policy_article",
+            "firm_policy_change_record",
             "industry",
             "policy_risk_event",
             "user",
@@ -57,11 +63,26 @@ class ModelMappingTests(unittest.TestCase):
             {column.name for column in inspect(UserIndustry).primary_key},
         )
 
-    def test_policy_id_is_nullable_without_foreign_key(self) -> None:
-        """確認 firm_policy 建置前 policy_id 可為 NULL 且不宣告外鍵。"""
-        policy_id = PolicyRiskEvent.__table__.c.policy_id
-        self.assertTrue(policy_id.nullable)
-        self.assertEqual([], list(policy_id.foreign_keys))
+    def test_policy_risk_event_foreign_keys_match_sql_schema(self) -> None:
+        """確認政策風險事件的可空外鍵與 SQL schema 一致。"""
+        expected_targets = {
+            "policy_id": "firm_policy.policy_id",
+            "policy_article_id": "firm_policy_article.policy_article_id",
+            "department_id": "department.department_id",
+        }
+        for column_name, expected_target in expected_targets.items():
+            column = PolicyRiskEvent.__table__.c[column_name]
+            self.assertTrue(column.nullable)
+            self.assertEqual(
+                {expected_target},
+                {foreign_key.target_fullname for foreign_key in column.foreign_keys},
+            )
+
+    def test_policy_article_embedding_uses_blob_column(self) -> None:
+        """確認條文向量欄位與 SQL schema 同為可空 BLOB。"""
+        embedding = FirmPolicyArticle.__table__.c.embedding
+        self.assertIsInstance(embedding.type, LargeBinary)
+        self.assertTrue(embedding.nullable)
 
     def test_version_ids_use_nullable_text_columns(self) -> None:
         """確認版本識別碼與更新後的 SQL schema 同為可空文字欄位。"""
@@ -84,22 +105,42 @@ class ModelMappingTests(unittest.TestCase):
             change_type="修正",
             event_date="2026-10-12",
         )
-        change_event.risk_events.append(
-            PolicyRiskEvent(
-                risk_event_id=1,
-                policy_id=None,
-                person_in_charge_user=user,
-                state="pending",
+        policy = FirmPolicy(policy_id=1, policy_name="洗錢防制政策")
+        policy_article = FirmPolicyArticle(
+            policy_article_id=1,
+            policy=policy,
+            article=1,
+            context="應執行客戶身分確認。",
+            embedding=b"vector",
+        )
+        risk_event = PolicyRiskEvent(
+            risk_event_id=1,
+            policy=policy,
+            policy_article=policy_article,
+            department=department,
+            topic="客戶身分確認",
+            state="pending",
+        )
+        risk_event.policy_change_records.append(
+            FirmPolicyChangeRecord(
+                policy_change_id=1,
+                policy=policy,
+                policy_article=policy_article,
+                old_context="舊條文",
+                new_context="新條文",
             )
         )
+        change_event.risk_events.append(risk_event)
 
         with Session(self.engine) as session:
             session.add(change_event)
             session.commit()
             stored = session.get(PolicyRiskEvent, 1)
             self.assertIsNotNone(stored)
-            self.assertEqual("王小明", stored.person_in_charge_user.user_name)
-            self.assertIsNone(stored.policy_id)
+            self.assertEqual("法遵部", stored.department.department_name)
+            self.assertEqual("洗錢防制政策", stored.policy.policy_name)
+            self.assertEqual("應執行客戶身分確認。", stored.policy_article.context)
+            self.assertEqual("新條文", stored.policy_change_records[0].new_context)
 
 
 if __name__ == "__main__":
