@@ -1,7 +1,7 @@
 """Initialize the application's SQLite database from SQL files.
 
 By default, every ``*.sql`` file in ``database/sql`` is executed in
-lexicographical order and the database is created at
+lexicographical order and the database is recreated at
 ``database/data/legal_assistant.db``.
 """
 
@@ -25,14 +25,15 @@ def initialize_database(
     """初始化 SQLite 資料庫。
 
     輸入契約：
-        db_path 必須是欲建立或更新的 SQLite 檔案路徑。
+        db_path 必須是欲建立或複寫的 SQLite 檔案路徑；若檔案已存在，必須可刪除。
         sql_dir 必須是存在的目錄，且至少包含一個副檔名為 .sql 的檔案。
     函式效果：
-        建立資料庫的父目錄，並依檔名排序執行 sql_dir 內的 SQL 檔案。
+        建立資料庫的父目錄；若 db_path 已存在，先刪除原資料庫，再建立全新資料庫，
+        並依檔名排序執行 sql_dir 內的 SQL 檔案。
         所有 SQL 會在同一個交易中執行；任一檔案失敗時會回滾全部變更。
     輸出結果：
         回傳依實際執行順序排列的 SQL 檔案 Path 清單。
-        路徑或 SQL 不合法時會拋出 FileNotFoundError 或 RuntimeError。
+        路徑、檔案操作或 SQL 不合法時會拋出 FileNotFoundError 或 RuntimeError。
     """
     db_path = Path(db_path).resolve()
     sql_dir = Path(sql_dir).resolve()
@@ -45,6 +46,11 @@ def initialize_database(
         raise FileNotFoundError(f"No .sql files found in: {sql_dir}")
 
     db_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        db_path.unlink(missing_ok=True)
+    except OSError as exc:
+        raise RuntimeError(f"Failed to overwrite database '{db_path}': {exc}") from exc
+
     connection = sqlite3.connect(db_path)
 
     try:
