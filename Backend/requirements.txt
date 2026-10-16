@@ -4,3 +4,5 @@ pydantic
 python-dotenv
 google-generativeai
 sqlalchemy>=2.0,<3.0
+python-multipart
+sentence-transformers

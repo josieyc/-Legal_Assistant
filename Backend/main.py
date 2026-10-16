@@ -48,7 +48,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.include_router(legal_router)
+app.include_router(legal_router,prefix="/legal")
 
 
 # 定義前端送入的情境資料格式；department 未提供時使用通用部門。

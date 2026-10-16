@@ -1,12 +1,19 @@
 """法規相關 API 路由。"""
 
-from fastapi import APIRouter, Depends
+import xml.etree.ElementTree as ElementTree
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from Backend.controllers.act_change_controller import trigger_act_change_events
+from Backend.controllers.firm_policy_import_controller import (
+    parse_firm_policy_xml,
+    stage_firm_policy_import,
+)
 from Backend.database.connect import get_db_session
 
 app = APIRouter(tags=["legal"])
+MAX_XML_SIZE_BYTES = 10 * 1024 * 1024
 
 
 @app.get("/act_change_event")
@@ -21,4 +28,43 @@ def act_change_event(db_session: Session = Depends(get_db_session)) -> dict[str,
         回傳包含比對狀態、差異筆數及新增資料筆數的字典；解析或資料庫錯誤向外傳遞。
     """
     return trigger_act_change_events(db_session)
+
+
+@app.post("/firm-policy/import")
+async def import_firm_policy(
+    xml_file: UploadFile = File(...),
+    db_session: Session = Depends(get_db_session),
+) -> dict[str, object]:
+    """接收公司內規 XML 並寫入資料庫。
+
+    輸入契約：
+        xml_file 必須是 multipart/form-data 的非空 .xml 檔案，大小不得超過 10 MiB，
+        結構須與「測試資料_公司內規.xml」一致；db_session 由 dependency 提供。
+    函式效果：
+        讀取並解析上傳檔案，將 FirmPolicy 及其 FirmPolicyArticle 加入 Session；
+        全部條文與 embedding 建立完成後提交交易並持久化資料。
+    輸出結果：
+        成功時回傳匯入狀態、內規名稱、條文數與 committed=true；副檔名、大小、
+        XML 格式或內容不合法時拋出 HTTPException（400 或 413）。
+    """
+    filename = xml_file.filename or ""
+    if not filename.lower().endswith(".xml"):
+        raise HTTPException(status_code=400, detail="僅接受 .xml 檔案")
+
+    xml_content = await xml_file.read(MAX_XML_SIZE_BYTES + 1)
+    if len(xml_content) > MAX_XML_SIZE_BYTES:
+        raise HTTPException(status_code=413, detail="XML 檔案不得超過 10 MiB")
+
+    try:
+        parsed_policy = parse_firm_policy_xml(xml_content)
+    except (ElementTree.ParseError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    stage_firm_policy_import(db_session, parsed_policy)
+    return {
+        "status": "imported",
+        "policy_name": parsed_policy.name,
+        "article_count": len(parsed_policy.articles),
+        "committed": True,
+    }
 
