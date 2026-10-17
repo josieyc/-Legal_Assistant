@@ -90,6 +90,15 @@ class PolicyRiskEventControllerTests(unittest.TestCase):
             deposit_act_department_names,
         )
 
+    def test_fixed_seed_risk_factors_use_numeric_scores(self) -> None:
+        """義務強度與期限使用風險評分表的數字分數。"""
+        self.assertEqual({2, 3}, {seed.obligation_intensity for seed in FIXED_RISK_EVENT_SEEDS})
+        self.assertEqual({3}, {seed.deadline for seed in FIXED_RISK_EVENT_SEEDS})
+        self.assertTrue(all(
+            isinstance(seed.obligation_intensity, int) and isinstance(seed.deadline, int)
+            for seed in FIXED_RISK_EVENT_SEEDS
+        ))
+
     def test_missing_later_prerequisite_rolls_back_whole_batch(self) -> None:
         """批次中任一前置資料缺失時不寫入任何事件。"""
         with Session(self.engine) as session:
@@ -103,7 +112,7 @@ class PolicyRiskEventControllerTests(unittest.TestCase):
         self.assertEqual(0, count)
 
     def test_list_policy_risk_events_returns_requested_joined_fields(self) -> None:
-        """列表查詢只回傳指定欄位並展開法規所屬產業。"""
+        """列表查詢回傳指定欄位、展開產業，並計算四構面風險總分。"""
         expected_act_name = "發行人募集與發行有價證券處理準則"
         with Session(self.engine) as session:
             self._stage_prerequisites(session)
@@ -113,6 +122,13 @@ class PolicyRiskEventControllerTests(unittest.TestCase):
                     Act.act_name == expected_act_name
                 )
             )
+            change = session.scalar(
+                select(ActChangeEvent).where(
+                    ActChangeEvent.act_id == act.act_id,
+                    ActChangeEvent.article == 5,
+                )
+            )
+            change.penalty = "2"
             industry = Industry(industry_name="證券業")
             session.add(industry)
             session.flush()
@@ -142,7 +158,65 @@ class PolicyRiskEventControllerTests(unittest.TestCase):
         self.assertEqual("財務部", securities_event["affected_department"])
         self.assertEqual("2026-10-12", securities_event["event_date"])
         self.assertEqual("Pending", securities_event["status"])
-        self.assertIn("二日", securities_event["risk"])
+        # 義務強度 3 + 罰則 2 + 期限 3 + 單一部門影響範圍 1。
+        self.assertEqual(9, securities_event["risk"])
+        self.assertIsInstance(securities_event["risk"], int)
+
+    def test_risk_impact_scope_uses_events_for_the_same_provision(self) -> None:
+        """同一指定條文的事件數依 1、2～3、4 筆以上分別計為 1、2、3 分。"""
+        with Session(self.engine) as session:
+            act = Act(act_name="測試法規")
+            event_counts = {1: 1, 2: 2, 4: 4}
+            expected_scores = {1: 5, 2: 6, 4: 7}
+            for article, event_count in event_counts.items():
+                change = ActChangeEvent(
+                    article=article,
+                    penalty="1",
+                    change_type="修正",
+                    event_date="2026-10-17",
+                )
+                act.change_events.append(change)
+                for event_number in range(event_count):
+                    change.risk_events.append(PolicyRiskEvent(
+                        obligation_intensity="2",
+                        deadline="1",
+                        topic=f"第 {article} 條事件 {event_number + 1}",
+                        state="Pending",
+                    ))
+            session.add(act)
+            session.commit()
+
+            results = list_policy_risk_events(session)
+
+        scores_by_article = {
+            int(event["topic"].split()[1]): event["risk"] for event in results
+        }
+        self.assertEqual(expected_scores, scores_by_article)
+
+    def test_risk_normalizes_legacy_text_and_date_values(self) -> None:
+        """舊式等級及日期不會被直接轉成年份加入風險分數。"""
+        with Session(self.engine) as session:
+            act = Act(act_name="舊資料測試法規")
+            change = ActChangeEvent(
+                article=1,
+                penalty=None,
+                change_type="修正",
+                event_date="2026-10-12",
+            )
+            act.change_events.append(change)
+            change.risk_events.append(PolicyRiskEvent(
+                obligation_intensity="中",
+                deadline="2026-11-12",
+                topic="舊式資料",
+                state="Pending",
+            ))
+            session.add(act)
+            session.commit()
+
+            result = list_policy_risk_events(session)[0]
+
+        # 義務 2 + 無罰則 1 + 三個月內 3 + 單一部門 1。
+        self.assertEqual(7, result["risk"])
 
     def test_list_policy_risk_events_keeps_event_without_optional_links(self) -> None:
         """風險事件缺少產業或部門關聯時仍會保留於列表。"""
