@@ -134,7 +134,7 @@ def build_firm_policy_orm(parsed_policy: ParsedFirmPolicy) -> FirmPolicy:
         FirmPolicyArticle(
             article=article.article,
             context=article.context,
-            embedding=vectorize_policy_article(article.article, article.context),
+            embedding=vectorize_policy_article(article.article, article.context), #TODO: 目前僅限使用「測試資料_公司法規」
         )
         for article in parsed_policy.articles
     )

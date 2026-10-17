@@ -17,7 +17,7 @@ if __package__ in {None, ""}:
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
 
-from Backend.routers.legal_router import app as legal_router
+from Backend.routers.act_router import app as legal_router
 
 
 # 從與本程式同一個資料夾載入 .env，確保從不同工作目錄啟動也能正確讀取。
@@ -48,7 +48,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.include_router(legal_router,prefix="/legal")
+app.include_router(legal_router,prefix="/act")
 
 
 # 定義前端送入的情境資料格式；department 未提供時使用通用部門。
