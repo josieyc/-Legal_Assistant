@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { ArrowBtns } from "../ui";
 import { AlertTriangle, ArrowRight, Download, User } from "lucide-react";
 import { DEPTS, HEAT_ALERTS, HEAT_PERIODS, HEAT_SOURCES, REGS, TOPICS, heatMatrix, scoreTone } from "../data";
-import { Badge, Bar, Card, GhostBtn, Notice, PageHeader, PrimaryBtn, RiskBadge, Select, cn } from "../ui";
+import { Badge, Bar, Card, GhostBtn, PageHeader, PrimaryBtn, RiskBadge, Select, cn } from "../ui";
 import { useStore } from "../store";
 
 const LEVELS = [
@@ -53,7 +53,6 @@ export default function Heat() {
   return (
     <>
       <PageHeader title="風險熱度圖" sub="用部門 × 主題矩陣掌握風險集中處，讓管理資源優先投入關鍵影響。" action={<PrimaryBtn onClick={() => toast("已匯出風險報表（示範）")}><Download size={16} />匯出風險報表</PrimaryBtn>} />
-      <Notice />
       <div className="flex flex-wrap items-center gap-3">
         <Select label="期間" value={period} options={HEAT_PERIODS} onChange={setPeriod} />
         <Select label="部門" value={dept} options={["全部", ...DEPTS]} onChange={setDept} />
@@ -121,7 +120,7 @@ export default function Heat() {
         </Card>
       </div>
 
-      <Card className="p-6">
+      {/* <Card className="p-6">
         <div className="flex items-start justify-between"><div><h3 className="text-lg font-extrabold text-navy-900">風險提醒與注意事項</h3><p className="mt-1 text-xs text-sub">將高風險格轉換為可採取的行動，供決策判定</p></div><GhostBtn onClick={() => go("kanban")}>全部提醒 →</GhostBtn></div>
         <div className="mt-1 flex justify-end gap-2"><ArrowBtns prev={() => scroller.current?.scrollBy({ left: -340, behavior: "smooth" })} next={() => scroller.current?.scrollBy({ left: 340, behavior: "smooth" })} /></div>
         <div ref={scroller} className="mt-3 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-3">
@@ -134,7 +133,7 @@ export default function Heat() {
             </div>
           ))}
         </div>
-      </Card>
+      </Card> */}
     </>
   );
 }

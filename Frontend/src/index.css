@@ -4,7 +4,6 @@
 @theme {
   --font-sans: 'Inter', 'Noto Sans TC', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-
   --color-navy-950: #071530;
   --color-navy-900: #0b1f45;
   --color-navy-800: #0f2a5c;
@@ -12,7 +11,7 @@
   --color-navy-600: #1d4c9e;
   --color-brand: #1b59f8;
   --color-brand-soft: #eef3ff;
-  --color-canvas: #f3f6fc;
+  --color-canvas: #eef3ff;
   --color-line: #e6eaf3;
   --color-ink: #0f1b33;
   --color-sub: #5b6780;

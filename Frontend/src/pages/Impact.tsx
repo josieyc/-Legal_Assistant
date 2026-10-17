@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Building2, CheckCircle2, ClipboardList, Download, FileStack, Plus, Sparkles, Target } from "lucide-react";
 import { DEPTS, IMPACT_CONF, MEASURES, RULES } from "../data";
-import { ArrowBtns, Badge, Bar, Card, CarouselDots, CountUp, GhostBtn, Notice, PageHeader, PrimaryBtn, RegBar, Segmented, cn, useCarousel } from "../ui";
+import { ArrowBtns, Badge, Bar, Card, CarouselDots, CountUp, GhostBtn, PageHeader, PrimaryBtn, RegBar, Segmented, cn, useCarousel } from "../ui";
 import { useStore } from "../store";
 
 function Gauge({ v }: { v: number }) {
@@ -48,7 +48,6 @@ export default function Impact() {
   return (
     <>
       <PageHeader title="影響分析" sub="擷取法規異動與內部制度的差距，找出責任部門並形成可執行的因應措施。" action={<PrimaryBtn onClick={() => { MEASURES.forEach(createTask); }}><Plus size={16} />建立因應任務</PrimaryBtn>} />
-      <Notice />
       <RegBar />
 
       <Card className="grid gap-6 p-6 lg:grid-cols-[1fr_1fr_1fr_1.15fr]">
