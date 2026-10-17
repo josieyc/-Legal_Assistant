@@ -28,14 +28,14 @@ class FirmPolicyImportControllerTests(unittest.TestCase):
     """驗證公司內規 XML 解析及未提交 ORM 狀態。"""
 
     def test_parse_sample_xml_extracts_policy_and_articles(self) -> None:
-        """確認範例 XML 可解析名稱、前言與全部二十條條文。"""
+        """確認範例 XML 可解析名稱、前言與全部三十一條條文。"""
         parsed_policy = parse_firm_policy_xml(SAMPLE_XML_PATH.read_bytes())
 
         self.assertEqual("金融業務法令遵循作業規則", parsed_policy.name)
         self.assertIsNotNone(parsed_policy.description)
-        self.assertEqual(20, len(parsed_policy.articles))
+        self.assertEqual(31, len(parsed_policy.articles))
         self.assertEqual(1, parsed_policy.articles[0].article)
-        self.assertIn("全體人員", parsed_policy.articles[0].context)
+        self.assertIn("董事", parsed_policy.articles[0].context)
 
     def test_parse_rejects_malformed_xml(self) -> None:
         """確認格式錯誤的 XML 會回報解析例外。"""
@@ -61,7 +61,7 @@ class FirmPolicyImportControllerTests(unittest.TestCase):
         policy = build_firm_policy_orm(parsed_policy)
 
         self.assertEqual(parsed_policy.name, policy.policy_name)
-        self.assertEqual(20, len(policy.articles))
+        self.assertEqual(31, len(policy.articles))
         self.assertIs(policy, policy.articles[0].policy)
         self.assertTrue(all(article.embedding for article in policy.articles))
 
@@ -108,7 +108,7 @@ class FirmPolicyImportControllerTests(unittest.TestCase):
             ).all()
 
             self.assertIsNotNone(stored_policy)
-            self.assertEqual(20, len(stored_articles))
+            self.assertEqual(31, len(stored_articles))
             self.assertTrue(all(article.embedding for article in stored_articles))
         engine.dispose()
 
