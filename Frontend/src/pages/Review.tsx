@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { BookOpen, ChevronLeft, ChevronRight, Columns2, History, Paperclip, Save, Sparkles, UserCheck, Check, FileText, CheckCheck } from "lucide-react";
 import { REVIEW_ARTICLES } from "../data";
-import { Badge, Card, GhostBtn, Notice, PageHeader, PrimaryBtn, RegBar, Select, cn } from "../ui";
+import { Badge, Card, GhostBtn, PageHeader, PrimaryBtn, RegBar, Select, cn } from "../ui";
 import { useStore } from "../store";
 
 const CHOICES = ["採納 AI 判斷", "採納並調整因應措施", "退回重新分析", "不適用，附具理由"];
@@ -34,7 +34,6 @@ export default function Review() {
   return (
     <>
       <PageHeader title="複核頁" sub="條文、AI 判斷與人工決定並排核視，保留每一次法遵決策的依據。" action={<PrimaryBtn onClick={submit}><Check size={16} />提交複核決定</PrimaryBtn>} />
-      <Notice />
       <RegBar />
       <div className="flex flex-wrap items-center gap-3">
         <Select label="條文" value={`第 ${a.no} 條 · ${a.title}`} options={REVIEW_ARTICLES.map((x) => `第 ${x.no} 條 · ${x.title}`)} onChange={(v) => setIdx(REVIEW_ARTICLES.findIndex((x) => v.startsWith(`第 ${x.no} 條`)))} />

@@ -56,15 +56,7 @@ export function GhostBtn({ children, onClick, className, active }: { children: R
   );
 }
 
-export function Notice() {
-  return (
-    <div className="flex items-center gap-2 rounded-xl border border-brand/15 bg-brand-soft/70 px-4 py-2.5 text-xs text-sub">
-      <Info size={14} className="shrink-0 text-brand" />
-      <span className="flex-1">示範資料｜本頁法規條文、案例、日期與金額均為虛構示範，非真實監理審查；AI 分析須經人工複核。</span>
-      <span className="font-bold tracking-wider text-brand">DEMO</span>
-    </div>
-  );
-}
+
 
 export function Select({ label, value, options, onChange, className }: { label: string; value: string; options: string[]; onChange: (v: string) => void; className?: string }) {
   const [open, setOpen] = useState(false);

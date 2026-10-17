@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { ArrowRight, ArrowUpRight, Download, FileText, Gavel, Search, Send, Sparkles } from "lucide-react";
 import { HEAT_ALERTS, MONTHLY, PENALTIES, REGS, SUGGESTS, TOPICS, DEPTS } from "../data";
-import { ArrowBtns, Badge, Card, CarouselDots, CountUp, GhostBtn, Marquee, Notice, PageHeader, PrimaryBtn, RiskBadge, Select, cn, statusTone, useCarousel } from "../ui";
+import { ArrowBtns, Badge, Card, CarouselDots, CountUp, GhostBtn, Marquee, PageHeader, PrimaryBtn, RiskBadge, Select, cn, statusTone, useCarousel } from "../ui";
 import { useStore } from "../store";
 import { Donut, HBars } from "../charts";
 
@@ -48,7 +48,6 @@ function Spotlight() {
   const grad = ["from-navy-800 to-navy-600", "from-[#4b2fb8] to-navy-800", "from-[#0b6b7a] to-navy-800", "from-[#a8431a] to-navy-900", "from-navy-700 to-[#0b5c46]"][c.i];
   return (
     <div className={cn("relative flex flex-col overflow-hidden rounded-3xl bg-gradient-to-br p-7 text-white transition-all duration-700", grad)} onMouseEnter={() => c.setPaused(true)} onMouseLeave={() => c.setPaused(false)}>
-      <div className="bg-grid pointer-events-none absolute inset-0 opacity-60 [mask-image:linear-gradient(120deg,black,transparent_70%)]" />
       <div className="relative flex items-center justify-between">
         <span className="text-[11px] font-bold tracking-widest text-white/65">焦點法規 · {c.i + 1} / {list.length}</span>
         <ArrowBtns prev={c.prev} next={c.next} light />
@@ -205,7 +204,7 @@ function Summary() {
   return (
     <div className="grid gap-5 lg:grid-cols-[1.3fr_1fr]">
       <Card className="p-6 animate-rise">
-        <div className="flex items-start justify-between"><div><h3 className="text-lg font-extrabold text-navy-900">管理摘要</h3><p className="mt-1 text-xs text-sub">示範報告 · 2026 年 10 月 · 法遵主管視角</p></div><Badge tone="brand"><Sparkles size={11} />AI 草稿</Badge></div>
+        <div className="flex items-start justify-between"><div><h3 className="text-lg font-extrabold text-navy-900">管理摘要</h3><p className="mt-1 text-xs text-sub">示範報告 · 2026 年 10 月 · 法遵主管視角</p></div></div>
         <div className="mt-4 flex items-start gap-3 rounded-xl bg-gradient-to-r from-brand-soft to-violet-soft p-4 text-sm font-semibold text-navy-900"><Sparkles size={18} className="mt-0.5 shrink-0 text-brand" />本月優先補強洗錢防制與消費者保護；建議於示範生效日前完成 3 項關鍵措施。</div>
         <ul className="mt-4 space-y-2.5 text-[13px] text-sub">
           {alerts.map((a, i) => <li key={i} className="flex gap-3"><span className="mt-1.5 h-2 w-2 shrink-0 rounded-full" style={{ background: ["#e5484d", "#7c5cfc", "#e8890c"][i] }} /><span><b className="text-ink">{a.dept} · {a.t}。</b>{a.d}</span></li>)}
@@ -233,7 +232,6 @@ export default function Dashboard() {
   return (
     <>
       <PageHeader title="法規動態" sub="掌握監理變動，從重點解析到落實因應，一站式管理法遵工作。" action={<PrimaryBtn onClick={() => toast("已匯出管理摘要（示範）")}><Download size={16} />匯出管理摘要</PrimaryBtn>} />
-      <Notice />
       <div className="py-4"><Stats /></div>
       <div className="grid gap-5 lg:grid-cols-[1fr_1fr]"><Spotlight /><ChartCarousel /></div>
       <QaSection />
