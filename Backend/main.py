@@ -4,12 +4,10 @@ import sys
 from pathlib import Path
 import uvicorn
 
-# Gemini 功能暫停使用，待後續遷移至 google.genai 套件後再啟用。
-# from google import genai
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from fastapi.testclient import TestClient
 
 # 直接執行此檔案時，將專案根目錄加入模組搜尋路徑，讓 Backend 套件可被匯入。
 if __package__ in {None, ""}:
@@ -18,6 +16,9 @@ if __package__ in {None, ""}:
         sys.path.insert(0, str(project_root))
 
 from Backend.routers.act_router import app as legal_router
+from Backend.llm import router as llm_router
+from Backend.database.init_db import main as init_db
+from Backend.utils.test_data_flow import run_test_data_flow
 
 
 # 從與本程式同一個資料夾載入 .env，確保從不同工作目錄啟動也能正確讀取。
@@ -49,47 +50,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(legal_router,prefix="/act")
-
-
-# 定義前端送入的情境資料格式；department 未提供時使用通用部門。
-class ScenarioRequest(BaseModel):
-    scenario: str
-    department: str = "通用部門"
-
-
-# 明確描述 AI 的顧問角色、分析項目與回覆原則，作為每次請求的系統提示。
-SYSTEM_PROMPT = """
-你是一位專精於台灣金融保險業與金管會裁罰規定的資深法遵顧問。
-請依部門與情境提供初步法遵風險分析，並嚴格遵守以下格式與限制：
-- 全文使用繁體中文，含標點不得超過250字；不寫開場白、廢話或免責聲明。
-- 僅以條列式輸出以下四項分析及一句話總結，全部使用 bullet points。
-- 觸犯法條：只列法規名稱、條號及核心違規點，不得貼法條全文；無法確認時標示「待確認」，不可捏造。
-- 罰鍰預估：直接給最可能的金額區間，不解釋推估過程；資料不足時寫「無法估計」。
-- 風險等級：直接列 Level 1 至 Level 4，並用一句話說明原因。
-- 因應措施：只列1至3項最核心、可立即執行的具體行動；不得提供長篇或短中長期規劃。
-- 最後以一個 bullet point 提供一句話總結。
-""".strip()
-
-# 使用目前仍可用的 Flash 模型；舊版 gemini-1.5-flash 已不適合作為現行 API 模型。
-GEMINI_MODEL_NAME = "gemini-3.8-flash"
-
-
-# 接收情境後組合部門資訊與系統提示，呼叫 Gemini 並以 JSON 回傳分析結果。
-@app.post("/api/analyze-scenario")
-async def analyze_legal_risk(request: ScenarioRequest) -> dict[str, object]:
-    """回報法規風險分析服務目前暫停。
-
-    輸入契約：
-        request 必須是通過 FastAPI 驗證的 ScenarioRequest；目前不會送往外部服務。
-    函式效果：
-        不呼叫 Gemini 或修改外部狀態。
-    輸出結果：
-        固定拋出 HTTPException（503），表示 Gemini 功能暫停使用。
-    """
-    raise HTTPException(
-        status_code=503,
-        detail="Gemini 法規風險分析功能暫停使用。",
-    )
+app.include_router(llm_router)
 
 
 # 提供簡單的健康檢查端點，確認 API 伺服器可正常回應。
@@ -98,4 +59,11 @@ async def health_check() -> dict[str, str]:
     return {"status": "success", "message": "法規與風險情報助手後端運作正常。"}
 
 if __name__ == "__main__":
+    initialization_status = init_db([])
+    if initialization_status != 0:
+        raise SystemExit(initialization_status)
+
+    with TestClient(app) as test_client:
+        run_test_data_flow(test_client, progress_callback=print)
+
     uvicorn.run(app, host="127.0.0.1", port=8000)

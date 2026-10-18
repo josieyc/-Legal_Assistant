@@ -15,7 +15,7 @@ from Backend.controllers.act_change_controller import (
     compare_act_change_event_versions,
     trigger_act_change_events,
 )
-from Backend.models import Act, ActChangeEvent, ActIndustry, Base, Industry
+from Backend.models import Act, ActChangeEvent, ActIndustry, ActVersion, Base, Industry
 
 
 def _write_law_xml(
@@ -73,12 +73,24 @@ class ActChangeControllerTests(unittest.TestCase):
             second = trigger_act_change_events(session, self.previous_path, self.current_path)
             events = session.scalars(select(ActChangeEvent).order_by(ActChangeEvent.article)).all()
             act = session.scalar(select(Act))
+            versions = session.scalars(
+                select(ActVersion).order_by(ActVersion.version_id)
+            ).all()
 
         self.assertEqual(2, first["created_event_count"])
         self.assertEqual(0, second["created_event_count"])
         self.assertEqual("測試法", act.act_name)
         self.assertEqual([(3, "修正"), (7, "刪除")], [(event.article, event.change_type) for event in events])
         self.assertTrue(all(event.event_date == "2026-10-12" for event in events))
+        self.assertEqual(
+            [
+                ("20260601", "previous.xml"),
+                ("20261012", "current.xml"),
+            ],
+            [(version.version_id, version.source_xml) for version in versions],
+        )
+        self.assertEqual(2, first["created_version_count"])
+        self.assertEqual(0, second["created_version_count"])
 
     def test_compare_versions_returns_events_without_database(self) -> None:
         """獨立版本 API 流程回傳新舊條文與來源資訊。"""

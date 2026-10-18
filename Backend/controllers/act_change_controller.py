@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from Backend.models.act_change_event import ActChangeEvent
+from Backend.models.act_version import ActVersion
 from Backend.models.associations import ActIndustry
 from Backend.models.core import Act, Industry
 
@@ -255,6 +256,28 @@ def _get_or_create_industry(db_session: Session, industry_name: str) -> Industry
     return industry
 
 
+def _get_or_create_act_version(
+    db_session: Session,
+    version_id: str,
+    source_xml: Path,
+) -> bool:
+    """登錄由全域唯一 version_id 直接反查的來源 XML。"""
+    version = db_session.scalar(
+        select(ActVersion).where(ActVersion.version_id == version_id)
+    )
+    source_name = Path(source_xml).name
+    if version is None:
+        db_session.add(
+            ActVersion(version_id=version_id, source_xml=source_name)
+        )
+        return True
+    if version.source_xml != source_name:
+        raise ValueError(
+            f"version_id {version_id} 已對應 {version.source_xml}，不能再對應 {source_name}"
+        )
+    return False
+
+
 def _create_missing_act_industries(
     db_session: Session,
     act: Act,
@@ -337,6 +360,7 @@ def trigger_act_change_events(
         detected_event_count = 0
         created_event_count = 0
         created_industry_relation_count = 0
+        created_version_count = 0
 
         for act_name in sorted(previous_laws.keys() & current_laws.keys()):
             previous = previous_laws[act_name]
@@ -347,6 +371,12 @@ def trigger_act_change_events(
             changed_law_count += 1
             detected_event_count += len(changes)
             act = _get_or_create_act(db_session, act_name)
+            created_version_count += _get_or_create_act_version(
+                db_session, previous.version_id, previous_data_path
+            )
+            created_version_count += _get_or_create_act_version(
+                db_session, current.version_id, current_data_path
+            )
             created_industry_relation_count += _create_missing_act_industries(
                 db_session,
                 act,
@@ -383,4 +413,5 @@ def trigger_act_change_events(
         "detected_event_count": detected_event_count,
         "created_event_count": created_event_count,
         "created_industry_relation_count": created_industry_relation_count,
+        "created_version_count": created_version_count,
     }

@@ -4,12 +4,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+import json
+from pathlib import Path
 import re
 
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from Backend.models.act_change_event import ActChangeEvent
+from Backend.models.act_version import ActVersion
 from Backend.models.associations import ActIndustry
 from Backend.models.core import Act, Department, Industry
 from Backend.models.firm_policy import FirmPolicy, FirmPolicyArticle
@@ -17,6 +20,9 @@ from Backend.models.policy_risk_event import PolicyRiskEvent
 
 
 TEST_POLICY_NAME = "金融業務法令遵循作業規則"
+POLICY_RISK_TEST_DATA_PATH = (
+    Path(__file__).resolve().parent.parent / "legal_data" / "policy_risk_event_test_data.json"
+)
 
 
 def _category_score(value: object, labels: dict[str, int]) -> int:
@@ -78,74 +84,49 @@ class PolicyRiskEventSeed:
     suggest_due_date: str
 
 
-FIXED_RISK_EVENT_SEEDS = (
-    PolicyRiskEventSeed(
-        "存款帳戶及其疑似不法或顯屬異常交易管理辦法", 3, "修正", 3, "銀行業務部", 3,
-        3, "警示帳戶正式公文書送達期限調整",
-        "外部法規第 3 條已將送達期限由七個營業日縮短為五個營業日，內規仍規定七日。",
-        "將內規第 3 條修正為五個營業日，並調整警示帳戶逾期提醒流程。", "2026-10-19",
-    ),
-    PolicyRiskEventSeed(
-        "存款帳戶及其疑似不法或顯屬異常交易管理辦法", 7, "刪除", 7, "銀行業務部", 2,
-        3, "異常交易紀錄留存規範調整",
-        "外部法規第 7 條已刪除，內規第 7 條仍直接引用該條規定。",
-        "確認紀錄留存義務的現行法源，並修正內規第 7 條引用文字。", "2026-11-05",
-    ),
-    PolicyRiskEventSeed(
-        "存款帳戶及其疑似不法或顯屬異常交易管理辦法", 3, "修正", 3, "法令遵循部", 3,
-        3, "警示帳戶法規遵循檢核",
-        "警示帳戶公文送達期限縮短，現行內規與作業文件尚未完成法規符合性檢核。",
-        "完成內規、作業程序及教育訓練文件的法規落差盤點，並追蹤修正進度。", "2026-10-18",
-    ),
-    PolicyRiskEventSeed(
-        "存款帳戶及其疑似不法或顯屬異常交易管理辦法", 7, "刪除", 7, "法令遵循部", 2,
-        3, "刪除條文替代法源確認",
-        "外部法規第 7 條刪除後，內規原引用條文已失去直接法源依據。",
-        "確認交易紀錄留存義務的替代法源及保存年限，提供內規修正意見。", "2026-10-26",
-    ),
-    PolicyRiskEventSeed(
-        "存款帳戶及其疑似不法或顯屬異常交易管理辦法", 3, "修正", 3, "風險管理部", 3,
-        3, "警示帳戶逾期作業風險評估",
-        "送達期限縮短兩個營業日，可能增加人工追蹤延誤及逾期解除警示帳戶的作業風險。",
-        "評估案件量與人工作業負荷，設定第三個營業日預警及第五個營業日升級通報。", "2026-10-19",
-    ),
-    PolicyRiskEventSeed(
-        "存款帳戶及其疑似不法或顯屬異常交易管理辦法", 7, "刪除", 7, "風險管理部", 2,
-        3, "異常交易紀錄留存控制評估",
-        "外部條文刪除可能影響既有留存控制的依據，但直接停止留存亦可能產生稽核風險。",
-        "在替代法源確認前維持既有留存控制，並評估資料保存、個資及稽核風險。", "2026-11-05",
-    ),
-    PolicyRiskEventSeed(
-        "保險業辦理國外投資管理辦法", 4, "修正", 10, "保險投資部", 2,
-        3, "外匯存款單一銀行限額調整",
-        "外部法規第 4 條將單一銀行外匯存款上限由百分之二調整為百分之三。",
-        "評估是否維持內規百分之二的較嚴格限額，並留存風險評估與核准紀錄。", "2026-11-05",
-    ),
-    PolicyRiskEventSeed(
-        "發行人募集與發行有價證券處理準則", 5, "修正", 16, "財務部", 3,
-        3, "重大事項公告申報期限縮短",
-        "外部準則第 5 條將公告及申報期限由三日縮短為二日，內規第 16 條仍規定三日。",
-        "將內規第 16 條修正為二日，並同步縮短重大事項通報與覆核時程。", "2026-10-19",
-    ),
-)
+def load_policy_risk_event_seeds(
+    data_path: Path = POLICY_RISK_TEST_DATA_PATH,
+) -> tuple[PolicyRiskEventSeed, ...]:
+    """從獨立 JSON 檔載入固定政策風險事件測試資料。
+
+    輸入契約：
+        data_path 必須指向 UTF-8 編碼的 JSON 陣列；每筆物件須包含
+        PolicyRiskEventSeed 的全部欄位，且不得包含額外欄位。
+    函式效果：
+        讀取並解析指定檔案，不修改檔案或資料庫。
+    輸出結果：
+        回傳不可變的 PolicyRiskEventSeed tuple；檔案不存在、JSON 格式錯誤或
+        欄位不符時，分別向外傳遞 OSError、JSONDecodeError 或 TypeError。
+    """
+    with data_path.open(encoding="utf-8") as data_file:
+        records = json.load(data_file)
+    if not isinstance(records, list):
+        raise TypeError("政策風險事件測試資料必須是 JSON 陣列")
+    return tuple(PolicyRiskEventSeed(**record) for record in records)
 
 
 def _find_act_change_event(db_session: Session, seed: PolicyRiskEventSeed) -> ActChangeEvent:
     """取得測試定義所對應的法規異動事件。
 
     輸入契約：
-        db_session 必須可查詢；seed 必須描述測試 XML 中 2026-10-12 的異動。
+        db_session 必須可查詢；seed 必須描述測試 XML 中唯一的法規條文異動。
     函式效果：
-        依法規名稱、條號、異動類型及版本查詢資料；不修改資料庫。
+        依法規名稱、條號及異動類型查詢資料；不修改資料庫。
     輸出結果：
         回傳 ActChangeEvent；找不到時拋出 LookupError。
     """
     event = db_session.scalar(
-        select(ActChangeEvent).join(Act).where(
+        select(ActChangeEvent)
+        .join(Act)
+        .join(
+            ActVersion,
+            ActVersion.version_id == ActChangeEvent.new_version_id,
+        )
+        .where(
             Act.act_name == seed.act_name,
             ActChangeEvent.article == seed.act_article,
             ActChangeEvent.change_type == seed.change_type,
-            ActChangeEvent.new_version_id == "20261012",
+            ActVersion.source_xml == "測試資料_後.xml",
         ).order_by(ActChangeEvent.act_change_event_id)
     )
     if event is None:
@@ -314,7 +295,7 @@ def create_fixed_policy_risk_event(db_session: Session) -> dict[str, object]:
 
     輸入契約：
         db_session 必須可讀寫；資料庫須先建立測試 XML 的全部法規異動、匯入公司內規，
-        並具備 SQL 測試資料中的銀行業務部、保險投資部及財務部。
+        並具備 SQL 測試資料中前端 demo 使用的權責部門。
     函式效果：
         一次新增固定定義的 Pending 事件並提交；每次呼叫皆新增完整一批。
         任一前置資料缺失或資料庫操作失敗時回滾整批交易。
@@ -323,7 +304,8 @@ def create_fixed_policy_risk_event(db_session: Session) -> dict[str, object]:
         其他資料庫錯誤在回滾後向外傳遞。
     """
     try:
-        risk_events = [_build_risk_event(db_session, seed) for seed in FIXED_RISK_EVENT_SEEDS]
+        seeds = load_policy_risk_event_seeds()
+        risk_events = [_build_risk_event(db_session, seed) for seed in seeds]
         db_session.add_all(risk_events)
         db_session.commit()
         for risk_event in risk_events:

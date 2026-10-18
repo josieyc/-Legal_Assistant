@@ -11,6 +11,7 @@ from Backend.models import (
     Act,
     ActChangeEvent,
     ActIndustry,
+    ActVersion,
     Base,
     Department,
     FirmPolicy,
@@ -36,11 +37,12 @@ class ModelMappingTests(unittest.TestCase):
         self.engine.dispose()
 
     def test_metadata_contains_every_requested_table(self) -> None:
-        """確認 ORM metadata 包含 SQL schema 定義的十一張表。"""
+        """確認 ORM metadata 包含 SQL schema 定義的十二張表。"""
         expected_tables = {
             "act",
             "act_change_event",
             "act_industry",
+            "act_version",
             "department",
             "firm_policy",
             "firm_policy_article",

@@ -2,19 +2,22 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+import tempfile
 import unittest
 
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from Backend.controllers.policy_risk_event_controller import (
-    FIXED_RISK_EVENT_SEEDS,
     create_fixed_policy_risk_event,
     list_policy_risk_events,
+    load_policy_risk_event_seeds,
 )
 from Backend.models import (
     Act,
     ActChangeEvent,
+    ActVersion,
     ActIndustry,
     Base,
     Department,
@@ -48,72 +51,134 @@ class PolicyRiskEventControllerTests(unittest.TestCase):
         輸出結果：
             成功時回傳 None；資料庫錯誤向外傳遞。
         """
+        seeds = load_policy_risk_event_seeds()
+        version_ids = {
+            "金融機構防制洗錢作業準則": "20261012",
+            "金融服務消費者保護作業規範": "20261011",
+            "金融機構資訊安全管理要點": "20261010",
+            "授信業務風險管理作業指引": "20261009",
+            "金融機構個人資料保護規範": "20261008",
+            "電子支付機構業務管理規則": "20261007",
+            "金融機構客戶資料揭露指引": "20261005",
+            "銀行業內部控制及稽核制度實施辦法": "20261003",
+            "金融機構委外作業及監督辦法": "20261001",
+        }
         acts: dict[str, Act] = {}
-        for seed in FIXED_RISK_EVENT_SEEDS:
+        versions: dict[str, ActVersion] = {}
+        for seed in seeds:
+            version_id = version_ids[seed.act_name]
             if seed.act_name not in acts:
                 acts[seed.act_name] = Act(act_name=seed.act_name)
+                versions[version_id] = ActVersion(
+                    version_id=version_id, source_xml="測試資料_後.xml"
+                )
             acts[seed.act_name].change_events.append(ActChangeEvent(
                 article=seed.act_article, change_type=seed.change_type,
-                last_version_id="20260601", new_version_id="20261012", event_date="2026-10-12",
+                last_version_id="20250601", new_version_id=version_id,
+                event_date=f"{version_id[:4]}-{version_id[4:6]}-{version_id[6:]}",
             ))
         policy = FirmPolicy(policy_name="金融業務法令遵循作業規則")
-        for number in sorted({seed.policy_article for seed in FIXED_RISK_EVENT_SEEDS}):
+        for number in sorted({seed.policy_article for seed in seeds}):
             policy.articles.append(FirmPolicyArticle(article=number, context=f"測試內規第 {number} 條"))
         departments = [Department(department_name=name) for name in sorted(
-            {seed.department_name for seed in FIXED_RISK_EVENT_SEEDS}
+            {seed.department_name for seed in seeds}
         )]
-        session.add_all([*acts.values(), policy, *departments])
+        session.add_all([*acts.values(), *versions.values(), policy, *departments])
         session.commit()
 
     def test_each_call_inserts_complete_pending_event_batch(self) -> None:
-        """每次觸發都新增涵蓋三類法規的完整 Pending 事件批次。"""
+        """每次觸發都新增涵蓋前端 demo 法規的完整 Pending 事件批次。"""
+        seeds = load_policy_risk_event_seeds()
         with Session(self.engine) as session:
             self._stage_prerequisites(session)
             first = create_fixed_policy_risk_event(session)
             second = create_fixed_policy_risk_event(session)
             events = session.scalars(select(PolicyRiskEvent)).all()
 
-        batch_size = len(FIXED_RISK_EVENT_SEEDS)
+        batch_size = len(seeds)
         self.assertEqual(batch_size, first["created_count"])
         self.assertEqual(batch_size, second["created_count"])
         self.assertEqual(batch_size * 2, len(events))
         self.assertTrue(all(event.state == "Pending" for event in events))
-        self.assertEqual({seed.topic for seed in FIXED_RISK_EVENT_SEEDS}, {event.topic for event in events})
+        self.assertEqual({seed.topic for seed in seeds}, {event.topic for event in events})
         self.assertTrue(all(event.policy_id is not None and event.department_id is not None for event in events))
-        deposit_act_department_names = {
-            seed.department_name
-            for seed in FIXED_RISK_EVENT_SEEDS
-            if seed.act_name == "存款帳戶及其疑似不法或顯屬異常交易管理辦法"
+        aml_article_mappings = {
+            (seed.act_article, seed.policy_article, seed.department_name)
+            for seed in seeds
+            if seed.act_name == "金融機構防制洗錢作業準則"
         }
         self.assertEqual(
-            {"銀行業務部", "法令遵循部", "風險管理部"},
-            deposit_act_department_names,
+            {(8, 6, "營運部"), (12, 8, "資訊部"), (16, 18, "法遵部")},
+            aml_article_mappings,
+        )
+
+    def test_seed_data_covers_frontend_demo_and_legal_data_changes(self) -> None:
+        """固定資料須涵蓋 demo 九項法規及 XML 中全部實質異動條文。
+
+        輸入契約：
+            使用預設 JSON 測試資料路徑，檔案須可讀取。
+        函式效果：
+            載入固定測試資料並比對法規條文與權責部門；不修改外部狀態。
+        輸出結果：
+            驗證 12 個異動條文及前端六個部門均完整涵蓋，否則測試失敗。
+        """
+        seeds = load_policy_risk_event_seeds()
+        expected_changes = {
+            ("金融機構防制洗錢作業準則", 8),
+            ("金融機構防制洗錢作業準則", 12),
+            ("金融機構防制洗錢作業準則", 16),
+            ("金融服務消費者保護作業規範", 7),
+            ("金融機構資訊安全管理要點", 21),
+            ("授信業務風險管理作業指引", 5),
+            ("金融機構個人資料保護規範", 14),
+            ("電子支付機構業務管理規則", 30),
+            ("電子支付機構業務管理規則", 31),
+            ("金融機構客戶資料揭露指引", 3),
+            ("銀行業內部控制及稽核制度實施辦法", 11),
+            ("金融機構委外作業及監督辦法", 16),
+        }
+
+        self.assertEqual(expected_changes, {(seed.act_name, seed.act_article) for seed in seeds})
+        self.assertEqual(
+            {"營運部", "法遵部", "資訊部", "風控部", "客服部", "授信部"},
+            {seed.department_name for seed in seeds},
         )
 
     def test_fixed_seed_risk_factors_use_numeric_scores(self) -> None:
         """義務強度與期限使用風險評分表的數字分數。"""
-        self.assertEqual({2, 3}, {seed.obligation_intensity for seed in FIXED_RISK_EVENT_SEEDS})
-        self.assertEqual({3}, {seed.deadline for seed in FIXED_RISK_EVENT_SEEDS})
+        seeds = load_policy_risk_event_seeds()
+        self.assertEqual({2, 3}, {seed.obligation_intensity for seed in seeds})
+        self.assertEqual({2, 3}, {seed.deadline for seed in seeds})
         self.assertTrue(all(
             isinstance(seed.obligation_intensity, int) and isinstance(seed.deadline, int)
-            for seed in FIXED_RISK_EVENT_SEEDS
+            for seed in seeds
         ))
 
-    def test_missing_later_prerequisite_rolls_back_whole_batch(self) -> None:
-        """批次中任一前置資料缺失時不寫入任何事件。"""
+    def test_seed_loader_rejects_non_array_json(self) -> None:
+        """測試資料最外層不是 JSON 陣列時拒絕載入。"""
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            data_path = Path(temporary_directory) / "invalid.json"
+            data_path.write_text('{"topic": "錯誤格式"}', encoding="utf-8")
+            with self.assertRaisesRegex(TypeError, "JSON 陣列"):
+                load_policy_risk_event_seeds(data_path)
+
+    def test_missing_department_rolls_back_whole_batch(self) -> None:
+        """SQL 部門主檔缺少必要部門時不寫入任何事件。"""
         with Session(self.engine) as session:
             self._stage_prerequisites(session)
-            department = session.scalar(select(Department).where(Department.department_name == "財務部"))
+            department = session.scalar(
+                select(Department).where(Department.department_name == "授信部")
+            )
             session.delete(department)
             session.commit()
-            with self.assertRaisesRegex(LookupError, "財務部"):
+            with self.assertRaisesRegex(LookupError, "授信部"):
                 create_fixed_policy_risk_event(session)
-            count = session.scalar(select(func.count()).select_from(PolicyRiskEvent))
-        self.assertEqual(0, count)
+            events = session.scalars(select(PolicyRiskEvent)).all()
+        self.assertEqual([], events)
 
     def test_list_policy_risk_events_returns_requested_joined_fields(self) -> None:
         """列表查詢回傳指定欄位、展開產業，並計算四構面風險總分。"""
-        expected_act_name = "發行人募集與發行有價證券處理準則"
+        expected_act_name = "金融服務消費者保護作業規範"
         with Session(self.engine) as session:
             self._stage_prerequisites(session)
             create_fixed_policy_risk_event(session)
@@ -125,7 +190,7 @@ class PolicyRiskEventControllerTests(unittest.TestCase):
             change = session.scalar(
                 select(ActChangeEvent).where(
                     ActChangeEvent.act_id == act.act_id,
-                    ActChangeEvent.article == 5,
+                    ActChangeEvent.article == 7,
                 )
             )
             change.penalty = "2"
@@ -155,8 +220,8 @@ class PolicyRiskEventControllerTests(unittest.TestCase):
         )
         self.assertIsInstance(securities_event["risk_event_id"], int)
         self.assertEqual("證券業", securities_event["industry"])
-        self.assertEqual("財務部", securities_event["affected_department"])
-        self.assertEqual("2026-10-12", securities_event["event_date"])
+        self.assertEqual("客服部", securities_event["affected_department"])
+        self.assertEqual("2026-10-11", securities_event["event_date"])
         self.assertEqual("Pending", securities_event["status"])
         # 義務強度 3 + 罰則 2 + 期限 3 + 單一部門影響範圍 1。
         self.assertEqual(9, securities_event["risk"])
