@@ -4,8 +4,24 @@ CREATE TABLE IF NOT EXISTS policy_risk_event_log (
     risk_event_id INTEGER NOT NULL,
     action TEXT NOT NULL,
     actor_id INTEGER,
-    from_state TEXT,
-    to_state TEXT,
+    from_state TEXT CHECK (
+        from_state IN (
+            'Pending',
+            'InReview',
+            'Reviewed',
+            'ReanalysisRequired',
+            'Closed'
+        )
+    ),
+    to_state TEXT CHECK (
+        to_state IN (
+            'Pending',
+            'InReview',
+            'Reviewed',
+            'ReanalysisRequired',
+            'Closed'
+        )
+    ),
     detail TEXT,
     changes TEXT,
     create_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,

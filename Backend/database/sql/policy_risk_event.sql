@@ -8,7 +8,15 @@ CREATE TABLE IF NOT EXISTS policy_risk_event (
     obligation_intensity TEXT,
     deadline TEXT,
     topic TEXT,
-    state TEXT NOT NULL,
+    state TEXT NOT NULL CHECK (
+        state IN (
+            'Pending',
+            'InReview',
+            'Reviewed',
+            'ReanalysisRequired',
+            'Closed'
+        )
+    ),
     reason TEXT,
     confidence_level INTEGER CHECK (confidence_level BETWEEN 0 AND 100),
     suggest_next_step TEXT,

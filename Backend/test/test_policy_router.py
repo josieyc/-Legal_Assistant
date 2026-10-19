@@ -117,13 +117,13 @@ class PolicyRouterTests(unittest.TestCase):
                         act_change_event_id=change_event.act_change_event_id,
                         policy_id=self.policy_id,
                         policy_article_id=affected_article_id,
-                        state="待處理",
+                        state="Pending",
                     ),
                     PolicyRiskEvent(
                         act_change_event_id=change_event.act_change_event_id,
                         policy_id=self.policy_id,
                         policy_article_id=affected_article_id,
-                        state="處理中",
+                        state="InReview",
                     ),
                 ]
             )

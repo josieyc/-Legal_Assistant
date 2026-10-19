@@ -5,6 +5,7 @@ from __future__ import annotations
 import unittest
 
 from sqlalchemy import Integer, LargeBinary, Text, create_engine, inspect
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from Backend.models import (
@@ -94,6 +95,51 @@ class ModelMappingTests(unittest.TestCase):
         self.assertIsInstance(confidence_level.type, Integer)
         self.assertTrue(confidence_level.nullable)
 
+    def test_policy_risk_event_state_accepts_only_defined_statuses(self) -> None:
+        """確認風險事件狀態僅接受五個定義值。"""
+        change_event = ActChangeEvent(
+            act_change_event_id=1,
+            act=Act(act_id=1, act_name="測試法"),
+            change_type="修正",
+            event_date="2026-10-19",
+        )
+        change_event.risk_events.append(
+            PolicyRiskEvent(risk_event_id=1, state="Unknown")
+        )
+
+        with Session(self.engine) as session:
+            session.add(change_event)
+            with self.assertRaises(IntegrityError):
+                session.commit()
+
+    def test_policy_risk_event_log_states_accept_defined_statuses_and_null(self) -> None:
+        """確認歷程起訖狀態可為空，非空時僅接受定義值。"""
+        event = PolicyRiskEvent(
+            risk_event_id=1,
+            state="Pending",
+            act_change_event=ActChangeEvent(
+                act_change_event_id=1,
+                act=Act(act_id=1, act_name="測試法"),
+                change_type="修正",
+                event_date="2026-10-19",
+            ),
+        )
+        event.logs.extend(
+            [
+                PolicyRiskEventLog(action="created", from_state=None, to_state="Pending"),
+                PolicyRiskEventLog(
+                    action="state_changed",
+                    from_state="Pending",
+                    to_state="Unknown",
+                ),
+            ]
+        )
+
+        with Session(self.engine) as session:
+            session.add(event)
+            with self.assertRaises(IntegrityError):
+                session.commit()
+
     def test_version_ids_use_nullable_text_columns(self) -> None:
         """確認版本識別碼與更新後的 SQL schema 同為可空文字欄位。"""
         for column_name in ("last_version_id", "new_version_id"):
@@ -129,7 +175,7 @@ class ModelMappingTests(unittest.TestCase):
             policy_article=policy_article,
             department=department,
             topic="客戶身分確認",
-            state="pending",
+            state="Pending",
         )
         risk_event.policy_change_records.append(
             FirmPolicyChangeRecord(
@@ -145,9 +191,9 @@ class ModelMappingTests(unittest.TestCase):
                 risk_event_log_id=1,
                 actor=user,
                 action="state_changed",
-                from_state="pending",
-                to_state="processing",
-                changes='{"state": "processing"}',
+                from_state="Pending",
+                to_state="InReview",
+                changes='{"state": "InReview"}',
             )
         )
         change_event.risk_events.append(risk_event)
@@ -162,7 +208,7 @@ class ModelMappingTests(unittest.TestCase):
             self.assertEqual("應執行客戶身分確認。", stored.policy_article.context)
             self.assertEqual("新條文", stored.policy_change_records[0].new_context)
             self.assertEqual("王小明", stored.logs[0].actor.user_name)
-            self.assertEqual("processing", stored.logs[0].to_state)
+            self.assertEqual("InReview", stored.logs[0].to_state)
 
 
 if __name__ == "__main__":

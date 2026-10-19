@@ -33,6 +33,11 @@ class PolicyRiskEvent(Base):
             "confidence_level BETWEEN 0 AND 100",
             name="ck_policy_risk_event_confidence_level_percentage",
         ),
+        CheckConstraint(
+            "state IN ('Pending', 'InReview', 'Reviewed', "
+            "'ReanalysisRequired', 'Closed')",
+            name="ck_policy_risk_event_state",
+        ),
     )
 
     risk_event_id: Mapped[int] = mapped_column(primary_key=True)

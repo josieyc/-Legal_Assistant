@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Index, Text, func
+from sqlalchemy import CheckConstraint, ForeignKey, Index, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from Backend.models.base import Base
@@ -21,6 +21,16 @@ class PolicyRiskEventLog(Base):
     __table_args__ = (
         Index("idx_policy_risk_event_log_risk_event_id", "risk_event_id"),
         Index("idx_policy_risk_event_log_actor_id", "actor_id"),
+        CheckConstraint(
+            "from_state IN ('Pending', 'InReview', 'Reviewed', "
+            "'ReanalysisRequired', 'Closed')",
+            name="ck_policy_risk_event_log_from_state",
+        ),
+        CheckConstraint(
+            "to_state IN ('Pending', 'InReview', 'Reviewed', "
+            "'ReanalysisRequired', 'Closed')",
+            name="ck_policy_risk_event_log_to_state",
+        ),
     )
 
     risk_event_log_id: Mapped[int] = mapped_column(primary_key=True)
