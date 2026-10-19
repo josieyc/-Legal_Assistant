@@ -13,6 +13,43 @@
 
 ## 核心設計原則
 
+### `main.py` 與 Router 的責任邊界
+
+`Backend/main.py` 是應用程式的組裝入口（composition root），`Backend/routers/` 與其他提供
+`APIRouter` 的模組是 HTTP 傳輸邊界。修改功能時必須維持下列分工：
+
+#### `Backend/main.py` 可以負責
+
+- 建立並設定唯一的 FastAPI `app`，包含應用程式中介軟體、全域設定與 router 掛載。
+- 決定各 router 的公開 URL prefix；router 模組不得依賴 `main.py` 才能理解自身端點路徑。
+- 提供不含業務邏輯的應用層級端點，例如健康檢查。
+- 在 `if __name__ == "__main__":` 保留直接啟動時才需要的開發／啟動編排，例如初始化資料庫、建立測試資料及啟動 Uvicorn。這些動作不得在 import `Backend.main` 時執行。
+
+#### `Backend/main.py` 不得負責
+
+- 實作特定法規、公司內規、風險事件或 LLM 功能的請求處理與業務規則。
+- 直接執行 ORM 查詢、交易提交、檔案解析、embedding 建立或外部 API 呼叫。
+- 定義只屬於單一端點的 request／response schema；應放在對應 router 或專屬 schema 模組。
+- 為了共用功能而讓 controller、model 或 router 反向匯入 `main.py` 或全域 `app`。
+
+#### Router 可以負責
+
+- 宣告 HTTP method、相對路徑、status code、tag，以及 request／response schema。
+- 透過 FastAPI dependency 取得資料庫 Session 或其他請求範圍資源。
+- 驗證與讀取 HTTP 輸入，例如 path/query/body、上傳檔案類型與大小，並將其轉成 controller 可接受的資料。
+- 呼叫 controller／service 完成用例，將結果轉成 HTTP response；把已知的領域例外轉成明確的 `HTTPException`。
+
+#### Router 不得負責
+
+- 實作可獨立於 HTTP 存在的業務規則、跨步驟用例編排或可複用的資料轉換；這些邏輯應放在 `controllers/` 或相應領域模組。
+- 直接撰寫 ORM 查詢、管理 commit／rollback，或自行建立、關閉資料庫 Session；交易邊界由 controller 或資料存取層管理。
+- 直接讀取伺服器端業務檔案、呼叫外部服務或執行昂貴計算；router 只收集輸入並委派。
+- 匯入其他 router 或 `Backend.main`，也不得自行掛載 URL prefix。跨領域流程應由 controller 協調，router 掛載由 `main.py` 統一處理。
+- 捕捉無法合理轉換的廣泛例外。只轉換已知、可預期的領域錯誤，未預期錯誤保留給全域錯誤處理與日誌機制。
+
+端點應維持「驗證／轉換 HTTP 輸入 → 呼叫一個明確用例 → 轉換輸出或已知錯誤」的薄層結構。
+若端點測試必須大量 mock 內部步驟，或同一段邏輯也會被 CLI、批次工作或其他端點使用，表示該邏輯應從 router 下移至 controller／service。
+
 ### 函式原子化
 
 - 每個函式只負責一件可清楚命名、可獨立驗證的事情。

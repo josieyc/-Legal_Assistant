@@ -55,6 +55,7 @@ class FirmPolicyArticle(Base):
         ForeignKey("firm_policy.policy_id", onupdate="CASCADE", ondelete="CASCADE"),
         nullable=False,
     )
+    chapter: Mapped[str | None] = mapped_column(Text, nullable=True)
     article: Mapped[int | None] = mapped_column(nullable=True)
     paragraph: Mapped[int | None] = mapped_column(nullable=True)
     subparagraph: Mapped[int | None] = mapped_column(nullable=True)

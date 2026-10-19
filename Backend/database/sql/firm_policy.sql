@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS firm_policy (
 CREATE TABLE IF NOT EXISTS firm_policy_article (
     policy_article_id INTEGER PRIMARY KEY,
     policy_id INTEGER NOT NULL,
+    chapter TEXT,
     article INTEGER,
     paragraph INTEGER,
     subparagraph INTEGER,

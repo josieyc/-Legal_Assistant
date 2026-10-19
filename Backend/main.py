@@ -16,6 +16,7 @@ if __package__ in {None, ""}:
         sys.path.insert(0, str(project_root))
 
 from Backend.routers.act_router import app as legal_router
+from Backend.routers.policy_router import app as policy_router
 from Backend.llm import router as llm_router
 from Backend.database.init_db import main as init_db
 from Backend.utils.test_data_flow import run_test_data_flow
@@ -50,6 +51,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(legal_router,prefix="/act")
+app.include_router(policy_router, prefix="/policy")
 app.include_router(llm_router)
 
 

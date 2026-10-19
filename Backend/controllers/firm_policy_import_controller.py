@@ -19,6 +19,7 @@ ARTICLE_NUMBER_PATTERN = re.compile(r"\d+")
 class ParsedPolicyArticle:
     """從 XML 解析出的單一公司內規條文。"""
 
+    chapter: str
     article: int
     context: str
 
@@ -91,7 +92,18 @@ def parse_firm_policy_xml(xml_content: bytes) -> ParsedFirmPolicy:
 
     parsed_articles: list[ParsedPolicyArticle] = []
     seen_article_numbers: set[int] = set()
-    for article_element in law_element.findall("./法規內容/條文"):
+    policy_content = law_element.find("法規內容")
+    if policy_content is None:
+        raise ValueError("公司內規 XML 缺少必要欄位：法規內容")
+
+    current_chapter = "未分類"
+    for content_element in policy_content:
+        if content_element.tag == "編章節":
+            current_chapter = (content_element.text or "").strip() or "未分類"
+            continue
+        if content_element.tag != "條文":
+            continue
+        article_element = content_element
         article_number = _parse_article_number(
             _required_text(article_element, "條號")
         )
@@ -100,6 +112,7 @@ def parse_firm_policy_xml(xml_content: bytes) -> ParsedFirmPolicy:
         seen_article_numbers.add(article_number)
         parsed_articles.append(
             ParsedPolicyArticle(
+                chapter=current_chapter,
                 article=article_number,
                 context=_required_text(article_element, "條文內容"),
             )
@@ -132,6 +145,7 @@ def build_firm_policy_orm(parsed_policy: ParsedFirmPolicy) -> FirmPolicy:
     )
     policy.articles.extend(
         FirmPolicyArticle(
+            chapter=article.chapter,
             article=article.article,
             context=article.context,
             embedding=vectorize_policy_article(article.article, article.context), #TODO: 目前僅限使用「測試資料_公司法規」

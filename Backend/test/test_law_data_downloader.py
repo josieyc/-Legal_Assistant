@@ -63,7 +63,7 @@ class LawDataDownloaderTest(unittest.TestCase):
         law_path = Path("legal_data/law.xml")
         regular_path = Path("legal_data/regular.xml")
         with patch(
-            "Backend.util.law_data_downloader.download_dataset",
+            "Backend.utils.law_data_downloader.download_dataset",
             side_effect=(law_path, regular_path),
         ) as download:
             result = download_all_legal_data(output_dir="target", timeout=60)

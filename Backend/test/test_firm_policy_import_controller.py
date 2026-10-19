@@ -34,6 +34,8 @@ class FirmPolicyImportControllerTests(unittest.TestCase):
         self.assertEqual("金融業務法令遵循作業規則", parsed_policy.name)
         self.assertIsNotNone(parsed_policy.description)
         self.assertEqual(31, len(parsed_policy.articles))
+        self.assertEqual("第一章　總則", parsed_policy.articles[0].chapter)
+        self.assertEqual("第二章　客戶審查與防制洗錢", parsed_policy.articles[4].chapter)
         self.assertEqual(1, parsed_policy.articles[0].article)
         self.assertIn("董事", parsed_policy.articles[0].context)
 
@@ -109,6 +111,7 @@ class FirmPolicyImportControllerTests(unittest.TestCase):
 
             self.assertIsNotNone(stored_policy)
             self.assertEqual(31, len(stored_articles))
+            self.assertEqual("第一章　總則", stored_articles[0].chapter)
             self.assertTrue(all(article.embedding for article in stored_articles))
         engine.dispose()
 
