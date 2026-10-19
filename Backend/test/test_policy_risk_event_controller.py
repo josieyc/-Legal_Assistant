@@ -100,6 +100,11 @@ class PolicyRiskEventControllerTests(unittest.TestCase):
         self.assertEqual(batch_size, second["created_count"])
         self.assertEqual(batch_size * 2, len(events))
         self.assertTrue(all(event.state == "Pending" for event in events))
+        self.assertEqual(
+            {seed.confidence_level for seed in seeds},
+            {event.confidence_level for event in events},
+        )
+        self.assertTrue(all(0 <= event.confidence_level <= 100 for event in events))
         self.assertEqual({seed.topic for seed in seeds}, {event.topic for event in events})
         self.assertTrue(all(event.policy_id is not None and event.department_id is not None for event in events))
         aml_article_mappings = {
@@ -151,6 +156,10 @@ class PolicyRiskEventControllerTests(unittest.TestCase):
         self.assertEqual({2, 3}, {seed.deadline for seed in seeds})
         self.assertTrue(all(
             isinstance(seed.obligation_intensity, int) and isinstance(seed.deadline, int)
+            for seed in seeds
+        ))
+        self.assertTrue(all(
+            isinstance(seed.confidence_level, int) and 0 <= seed.confidence_level <= 100
             for seed in seeds
         ))
 

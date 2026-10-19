@@ -80,6 +80,7 @@ class PolicyRiskEventSeed:
     deadline: int
     topic: str
     reason: str
+    confidence_level: int
     suggest_next_step: str
     suggest_due_date: str
 
@@ -197,6 +198,7 @@ def _build_risk_event(db_session: Session, seed: PolicyRiskEventSeed) -> PolicyR
         topic=seed.topic,
         state="Pending",
         reason=seed.reason,
+        confidence_level=seed.confidence_level,
         suggest_next_step=seed.suggest_next_step,
         suggest_due_date=seed.suggest_due_date,
     )

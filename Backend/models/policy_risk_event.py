@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Index, Text, func
+from sqlalchemy import CheckConstraint, ForeignKey, Index, Integer, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from Backend.models.base import Base
@@ -17,6 +17,7 @@ if TYPE_CHECKING:
         FirmPolicyArticle,
         FirmPolicyChangeRecord,
     )
+    from Backend.models.policy_risk_event_log import PolicyRiskEventLog
 
 
 class PolicyRiskEvent(Base):
@@ -28,6 +29,10 @@ class PolicyRiskEvent(Base):
         Index("idx_policy_risk_event_policy_id", "policy_id"),
         Index("idx_policy_risk_event_policy_article_id", "policy_article_id"),
         Index("idx_policy_risk_event_department_id", "department_id"),
+        CheckConstraint(
+            "confidence_level BETWEEN 0 AND 100",
+            name="ck_policy_risk_event_confidence_level_percentage",
+        ),
     )
 
     risk_event_id: Mapped[int] = mapped_column(primary_key=True)
@@ -60,6 +65,7 @@ class PolicyRiskEvent(Base):
     topic: Mapped[str | None] = mapped_column(Text, nullable=True)
     state: Mapped[str] = mapped_column(Text, nullable=False)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    confidence_level: Mapped[int | None] = mapped_column(Integer, nullable=True)
     suggest_next_step: Mapped[str | None] = mapped_column(Text, nullable=True)
     suggest_due_date: Mapped[str | None] = mapped_column(Text, nullable=True)
     create_at: Mapped[str] = mapped_column(
@@ -80,4 +86,8 @@ class PolicyRiskEvent(Base):
     )
     policy_change_records: Mapped[list[FirmPolicyChangeRecord]] = relationship(
         back_populates="risk_event"
+    )
+    logs: Mapped[list[PolicyRiskEventLog]] = relationship(
+        back_populates="risk_event",
+        cascade="all, delete-orphan",
     )

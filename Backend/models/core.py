@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from Backend.models.act_change_event import ActChangeEvent
     from Backend.models.associations import ActIndustry, UserIndustry
     from Backend.models.policy_risk_event import PolicyRiskEvent
+    from Backend.models.policy_risk_event_log import PolicyRiskEventLog
 
 
 class Act(Base):
@@ -85,4 +86,7 @@ class User(Base):
     industry_links: Mapped[list[UserIndustry]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
+    )
+    risk_event_logs: Mapped[list[PolicyRiskEventLog]] = relationship(
+        back_populates="actor"
     )

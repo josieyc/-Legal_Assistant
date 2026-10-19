@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from sqlalchemy import LargeBinary, Text, create_engine, inspect
+from sqlalchemy import Integer, LargeBinary, Text, create_engine, inspect
 from sqlalchemy.orm import Session
 
 from Backend.models import (
@@ -19,6 +19,7 @@ from Backend.models import (
     FirmPolicyChangeRecord,
     Industry,
     PolicyRiskEvent,
+    PolicyRiskEventLog,
     User,
     UserIndustry,
 )
@@ -37,7 +38,7 @@ class ModelMappingTests(unittest.TestCase):
         self.engine.dispose()
 
     def test_metadata_contains_every_requested_table(self) -> None:
-        """確認 ORM metadata 包含 SQL schema 定義的十二張表。"""
+        """確認 ORM metadata 包含 SQL schema 定義的十三張表。"""
         expected_tables = {
             "act",
             "act_change_event",
@@ -49,6 +50,7 @@ class ModelMappingTests(unittest.TestCase):
             "firm_policy_change_record",
             "industry",
             "policy_risk_event",
+            "policy_risk_event_log",
             "user",
             "user_industry",
         }
@@ -85,6 +87,12 @@ class ModelMappingTests(unittest.TestCase):
         embedding = FirmPolicyArticle.__table__.c.embedding
         self.assertIsInstance(embedding.type, LargeBinary)
         self.assertTrue(embedding.nullable)
+
+    def test_policy_risk_event_confidence_level_is_optional_percentage(self) -> None:
+        """確認信心程度以可空整數百分比儲存。"""
+        confidence_level = PolicyRiskEvent.__table__.c.confidence_level
+        self.assertIsInstance(confidence_level.type, Integer)
+        self.assertTrue(confidence_level.nullable)
 
     def test_version_ids_use_nullable_text_columns(self) -> None:
         """確認版本識別碼與更新後的 SQL schema 同為可空文字欄位。"""
@@ -132,6 +140,16 @@ class ModelMappingTests(unittest.TestCase):
                 new_context="新條文",
             )
         )
+        risk_event.logs.append(
+            PolicyRiskEventLog(
+                risk_event_log_id=1,
+                actor=user,
+                action="state_changed",
+                from_state="pending",
+                to_state="processing",
+                changes='{"state": "processing"}',
+            )
+        )
         change_event.risk_events.append(risk_event)
 
         with Session(self.engine) as session:
@@ -143,6 +161,8 @@ class ModelMappingTests(unittest.TestCase):
             self.assertEqual("洗錢防制政策", stored.policy.policy_name)
             self.assertEqual("應執行客戶身分確認。", stored.policy_article.context)
             self.assertEqual("新條文", stored.policy_change_records[0].new_context)
+            self.assertEqual("王小明", stored.logs[0].actor.user_name)
+            self.assertEqual("processing", stored.logs[0].to_state)
 
 
 if __name__ == "__main__":
