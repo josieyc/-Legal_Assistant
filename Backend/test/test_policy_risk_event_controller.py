@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from Backend.controllers.policy_risk_event_controller import (
     create_fixed_policy_risk_event,
+    find_policy_risk_event,
     list_policy_risk_events,
     load_policy_risk_event_seeds,
 )
@@ -314,6 +315,61 @@ class PolicyRiskEventControllerTests(unittest.TestCase):
         self.assertIsNone(results[0]["industry"])
         self.assertIsNone(results[0]["affected_department"])
 
+    def test_list_policy_risk_events_filters_by_state(self) -> None:
+        """指定 state 時只回傳完全符合該狀態的風險事件。"""
+        with Session(self.engine) as session:
+            act = Act(act_name="狀態篩選測試法規")
+            change = ActChangeEvent(
+                article=1,
+                change_type="修正",
+                event_date="2026-10-20",
+            )
+            act.change_events.append(change)
+            change.risk_events.extend(
+                [
+                    PolicyRiskEvent(topic="待處理", state="Pending"),
+                    PolicyRiskEvent(topic="審查中", state="InReview"),
+                ]
+            )
+            session.add(act)
+            session.commit()
+
+            results = list_policy_risk_events(session, state="InReview")
+
+        self.assertEqual(["審查中"], [event["topic"] for event in results])
+        self.assertEqual({"InReview"}, {event["status"] for event in results})
+
+    def test_find_policy_risk_event_returns_all_columns(self) -> None:
+        """依 ID 查詢會回傳事件的全部資料欄位。"""
+        with Session(self.engine) as session:
+            act = Act(act_name="單筆查詢測試法規")
+            change = ActChangeEvent(
+                article=1,
+                change_type="修正",
+                event_date="2026-10-20",
+            )
+            act.change_events.append(change)
+            event = PolicyRiskEvent(topic="單筆事件", state="Reviewed")
+            change.risk_events.append(event)
+            session.add(act)
+            session.commit()
+            event_id = event.risk_event_id
+
+            result = find_policy_risk_event(session, event_id)
+
+        self.assertEqual(event_id, result["risk_event_id"])
+        self.assertEqual("單筆事件", result["topic"])
+        self.assertEqual("Reviewed", result["state"])
+        self.assertEqual(
+            {column.name for column in PolicyRiskEvent.__table__.columns},
+            set(result),
+        )
+
+    def test_find_policy_risk_event_raises_when_missing(self) -> None:
+        """不存在的 ID 會明確回報找不到事件。"""
+        with Session(self.engine) as session:
+            with self.assertRaisesRegex(LookupError, "找不到政策風險事件"):
+                find_policy_risk_event(session, 999)
 
 if __name__ == "__main__":
     unittest.main()

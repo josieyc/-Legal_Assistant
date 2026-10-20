@@ -14,15 +14,28 @@ from sqlalchemy.orm import Session
 from Backend.models.act_change_event import ActChangeEvent
 from Backend.models.act_version import ActVersion
 from Backend.models.associations import ActIndustry
-from Backend.models.core import Act, Department, Industry
+from Backend.models.core import Act, Department, Industry, User
 from Backend.models.firm_policy import FirmPolicy, FirmPolicyArticle
 from Backend.models.policy_risk_event import PolicyRiskEvent
+from Backend.models.policy_risk_event_log import PolicyRiskEventLog
 
 
 TEST_POLICY_NAME = "金融業務法令遵循作業規則"
 POLICY_RISK_TEST_DATA_PATH = (
     Path(__file__).resolve().parent.parent / "legal_data" / "policy_risk_event_test_data.json"
 )
+REVIEW_DRAFT_EDITABLE_STATES = {"Pending", "InReview", "ReanalysisRequired"}
+REVIEW_SUBMITTABLE_STATES = {"Pending", "InReview", "ReanalysisRequired"}
+REVIEW_DRAFT_FIELDS = {
+    "department_id",
+    "obligation_intensity",
+    "deadline",
+    "topic",
+    "reason",
+    "confidence_level",
+    "suggest_next_step",
+    "suggest_due_date",
+}
 
 
 def _category_score(value: object, labels: dict[str, int]) -> int:
@@ -217,11 +230,180 @@ def _serialize_risk_event(risk_event: PolicyRiskEvent) -> dict[str, object]:
     return {column.name: getattr(risk_event, column.name) for column in PolicyRiskEvent.__table__.columns}
 
 
-def list_policy_risk_events(db_session: Session) -> list[dict[str, object]]:
+def find_policy_risk_event(
+    db_session: Session,
+    risk_event_id: int,
+) -> dict[str, object]:
+    """依主鍵取得單一政策風險事件。
+
+    輸入契約：
+        db_session 必須是可查詢的 SQLAlchemy Session；risk_event_id 必須是政策
+        風險事件的整數主鍵。
+    函式效果：
+        依主鍵查詢 PolicyRiskEvent；不修改資料庫。
+    輸出結果：
+        找到時回傳事件的全部非關聯欄位；找不到時拋出 LookupError。
+    """
+    risk_event = db_session.get(PolicyRiskEvent, risk_event_id)
+    if risk_event is None:
+        raise LookupError("找不到政策風險事件")
+    return _serialize_risk_event(risk_event)
+
+
+def review_policy_risk_event_draft(
+    db_session: Session,
+    risk_event_id: int,
+    actor_id: int,
+    updates: dict[str, object],
+) -> dict[str, object]:
+    """更新政策風險事件草稿並建立稽核紀錄。
+
+    僅 Pending、InReview 與 ReanalysisRequired 狀態可更新。updates 只接受
+    REVIEW_DRAFT_FIELDS，且值可為 None 以清除欄位；成功後事件狀態為 InReview。
+    主表與 log 在同一交易提交，任何錯誤都會回滾。
+    """
+    try:
+        risk_event = db_session.get(PolicyRiskEvent, risk_event_id)
+        if risk_event is None:
+            raise LookupError("找不到政策風險事件")
+        if db_session.get(User, actor_id) is None:
+            raise LookupError("找不到操作使用者")
+        if risk_event.state not in REVIEW_DRAFT_EDITABLE_STATES:
+            raise ValueError(f"狀態 {risk_event.state} 不允許編輯審查草稿")
+
+        unknown_fields = set(updates) - REVIEW_DRAFT_FIELDS
+        if unknown_fields:
+            raise ValueError(f"不允許更新欄位：{', '.join(sorted(unknown_fields))}")
+        if not updates:
+            raise ValueError("至少需要提供一個草稿欄位")
+
+        department_id = updates.get("department_id")
+        if department_id is not None and "department_id" in updates:
+            if db_session.get(Department, department_id) is None:
+                raise LookupError("找不到權責部門")
+
+        from_state = risk_event.state
+        changes: dict[str, dict[str, object]] = {}
+        for field, new_value in updates.items():
+            old_value = getattr(risk_event, field)
+            if old_value != new_value:
+                changes[field] = {"from": old_value, "to": new_value}
+                setattr(risk_event, field, new_value)
+
+        if from_state != "InReview":
+            changes["state"] = {"from": from_state, "to": "InReview"}
+        risk_event.state = "InReview"
+
+        log = PolicyRiskEventLog(
+            risk_event=risk_event,
+            action="review_draft_updated",
+            actor_id=actor_id,
+            from_state=from_state,
+            to_state="InReview",
+            changes=json.dumps(changes, ensure_ascii=False, sort_keys=True),
+        )
+        db_session.add(log)
+        db_session.commit()
+        db_session.refresh(risk_event)
+        db_session.refresh(log)
+    except Exception:
+        db_session.rollback()
+        raise
+
+    return {
+        "status": "updated",
+        "event": _serialize_risk_event(risk_event),
+        "log": {
+            column.name: getattr(log, column.name)
+            for column in PolicyRiskEventLog.__table__.columns
+        },
+    }
+
+
+def submit_policy_risk_event_review(
+    db_session: Session,
+    risk_event_id: int,
+    actor_id: int,
+    corrections: dict[str, object],
+) -> dict[str, object]:
+    """提交政策風險事件審核、套用修正並完成審核。
+
+    輸入契約：
+        db_session 必須是可讀寫的 SQLAlchemy Session；risk_event_id 與
+        actor_id 必須對應已存在的風險事件及使用者；corrections 只能
+        包含 REVIEW_DRAFT_FIELDS，可為空字典，且明確的 None 表示清除欄位。
+    函式效果：
+        將修正套用到 Pending、InReview 或 ReanalysisRequired 事件，
+        將狀態設為 Reviewed，並在同一交易新增包含欄位與狀態修正的
+        PolicyRiskEventLog；失敗時回滾全部變更。
+    輸出結果：
+        回傳 status 為 completed 的事件與 log 字典；找不到事件、
+        使用者或部門時拋出 LookupError，狀態或修正欄位不允許時拋出
+        ValueError。
+    """
+    try:
+        risk_event = db_session.get(PolicyRiskEvent, risk_event_id)
+        if risk_event is None:
+            raise LookupError("找不到政策風險事件")
+        if db_session.get(User, actor_id) is None:
+            raise LookupError("找不到操作使用者")
+        if risk_event.state not in REVIEW_SUBMITTABLE_STATES:
+            raise ValueError(f"狀態 {risk_event.state} 不允許提交審核")
+
+        unknown_fields = set(corrections) - REVIEW_DRAFT_FIELDS
+        if unknown_fields:
+            raise ValueError(f"不允許修正欄位：{', '.join(sorted(unknown_fields))}")
+
+        department_id = corrections.get("department_id")
+        if department_id is not None and "department_id" in corrections:
+            if db_session.get(Department, department_id) is None:
+                raise LookupError("找不到權責部門")
+
+        from_state = risk_event.state
+        changes: dict[str, dict[str, object]] = {}
+        for field, new_value in corrections.items():
+            old_value = getattr(risk_event, field)
+            if old_value != new_value:
+                changes[field] = {"from": old_value, "to": new_value}
+                setattr(risk_event, field, new_value)
+
+        changes["state"] = {"from": from_state, "to": "Reviewed"}
+        risk_event.state = "Reviewed"
+        log = PolicyRiskEventLog(
+            risk_event=risk_event,
+            action="review_submitted",
+            actor_id=actor_id,
+            from_state=from_state,
+            to_state="Reviewed",
+            changes=json.dumps(changes, ensure_ascii=False, sort_keys=True),
+        )
+        db_session.add(log)
+        db_session.commit()
+        db_session.refresh(risk_event)
+        db_session.refresh(log)
+    except Exception:
+        db_session.rollback()
+        raise
+
+    return {
+        "status": "completed",
+        "event": _serialize_risk_event(risk_event),
+        "log": {
+            column.name: getattr(log, column.name)
+            for column in PolicyRiskEventLog.__table__.columns
+        },
+    }
+
+
+def list_policy_risk_events(
+    db_session: Session,
+    state: str | None = None,
+) -> list[dict[str, object]]:
     """查詢供風險事件列表使用的法規與產業資訊。
 
     輸入契約：
-        db_session 必須是可查詢且已建立完整 ORM schema 的 SQLAlchemy Session。
+        db_session 必須是可查詢且已建立完整 ORM schema 的 SQLAlchemy Session；
+        state 若有提供，僅查詢狀態完全相符的事件。
     函式效果：
         從政策風險事件連結法規異動、法規、部門及產業資料；僅讀取資料庫，
         不提交交易或修改任何資料。同一法規連結多個產業時，每個產業各回傳一筆。
@@ -267,11 +449,13 @@ def list_policy_risk_events(db_session: Session) -> list[dict[str, object]]:
         .outerjoin(Department, PolicyRiskEvent.department_id == Department.department_id)
         .outerjoin(ActIndustry, Act.act_id == ActIndustry.act_id)
         .outerjoin(Industry, ActIndustry.industry_id == Industry.industry_id)
-        .order_by(
-            ActChangeEvent.event_date.desc(),
-            PolicyRiskEvent.risk_event_id,
-            Industry.industry_name,
-        )
+    )
+    if state is not None:
+        statement = statement.where(PolicyRiskEvent.state == state)
+    statement = statement.order_by(
+        ActChangeEvent.event_date.desc(),
+        PolicyRiskEvent.risk_event_id,
+        Industry.industry_name,
     )
     results = []
     for row in db_session.execute(statement).mappings():
