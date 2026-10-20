@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { ArrowBtns, CarouselDots, useCarousel } from "../ui";
 import { ArrowRight, ClipboardList, Eye, EyeOff, Sparkles } from "lucide-react";
 import { DIFF_DATA, DIFF_INSIGHTS, type Seg } from "../data";
-import { Badge, Card, GhostBtn, Notice, PageHeader, PrimaryBtn, RegBar, Segmented, Select, cn } from "../ui";
+import { Badge, Card, GhostBtn, PageHeader, PrimaryBtn, RegBar, Segmented, Select, cn } from "../ui";
 import { useStore } from "../store";
 
 function Para({ segs, side }: { segs: Seg[]; side: "old" | "new" }) {
@@ -40,7 +40,6 @@ export default function Diff() {
   return (
     <>
       <PageHeader title="差異對照" sub="逐條辨識新舊版差異，快速理解法規修訂的核心要求。" action={<PrimaryBtn onClick={() => go("impact")}><ArrowRight size={16} />前往影響分析</PrimaryBtn>} />
-      <Notice />
       <RegBar />
       <div className="flex flex-wrap items-center gap-3">
         <Select label="舊版" value={oldV} options={["舊版：2025/06/01（示範）", "舊版：2024/03/15（示範）"]} onChange={setOldV} />

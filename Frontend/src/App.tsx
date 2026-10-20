@@ -24,17 +24,17 @@ const NAV: { k: PageKey; label: string; icon: typeof Bell }[] = [
   { k: "qa", label: "問答", icon: MessagesSquare },
 ];
 
-function Logo() {
-  return (
-    <div className="flex items-center gap-3">
-      <div className="grid h-10 w-10 place-items-center rounded-xl bg-white text-navy-800 shadow-[0_6px_18px_rgba(0,0,0,0.25)]"><ShieldCheck size={22} /></div>
-      <div className="leading-tight">
-        <div className="text-[15px] font-bold text-white">AI 法規與監理小助手</div>
-        <div className="text-[11px] text-white/60">Lagal_Assistant</div>
-      </div>
-    </div>
-  );
-}
+// function Logo() {
+//   return (
+//     <div className="flex items-center gap-3">
+//       <div className="grid h-10 w-10 place-items-center rounded-xl bg-white text-navy-800 shadow-[0_6px_18px_rgba(0,0,0,0.25)]"><ShieldCheck size={22} /></div>
+//       <div className="leading-tight">
+//         <div className="text-[15px] font-bold text-white">AI 法規與監理小助手</div>
+//         <div className="text-[11px] text-white/60">Lagal_Assistant</div>
+//       </div>
+//     </div>
+//   );
+// }
 
 function Sidebar({ onClose, onLogout }: { onClose?: () => void; onLogout: () => void }) {
   const { page, go, tasks } = useStore();
@@ -43,16 +43,8 @@ function Sidebar({ onClose, onLogout }: { onClose?: () => void; onLogout: () => 
     <aside className="relative flex h-full w-[236px] flex-col overflow-hidden bg-gradient-to-b from-navy-800 via-navy-900 to-navy-950 p-4 text-white">
       <div className="bg-grid pointer-events-none absolute inset-0 opacity-40 [mask-image:linear-gradient(to_bottom,black,transparent_60%)]" />
       <div className="relative flex items-center justify-between">
-        <Logo />
         {onClose && <button onClick={onClose} className="text-white/70"><X size={18} /></button>}
       </div>
-      <button className="relative mt-5 flex items-center justify-between rounded-xl bg-white/10 px-3 py-2.5 text-left ring-1 ring-white/10 transition hover:bg-white/15">
-        <span>
-          <span className="block text-[10px] text-white/55">示範金融機構</span>
-          <span className="text-xs font-medium">法令遵循管理中心</span>
-        </span>
-        <ChevronsUpDown size={14} className="text-white/50" />
-      </button>
       <div className="relative mb-2 mt-6 px-2 text-[10px] font-semibold tracking-widest text-white/45">監理智慧工作台</div>
       <nav className="relative flex flex-col gap-1">
         {NAV.map(({ k, label, icon: I }) => (
@@ -66,7 +58,10 @@ function Sidebar({ onClose, onLogout }: { onClose?: () => void; onLogout: () => 
       <div className="relative mt-auto space-y-3">
         <div className="rounded-xl bg-white/8 p-3 ring-1 ring-white/10">
           <div className="flex items-center gap-2 text-xs font-semibold"><span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse-ring" />監理知識庫已更新</div>
-          <div className="mt-1 text-[11px] text-white/55">12 份示範文件 · 僅限內部演示</div>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-brand to-violet text-sm font-bold text-white">林</div>
+          <div className="hidden leading-tight sm:block"><div className="text-[13px] font-semibold">林怡君</div><div className="text-[11px] text-sub">法遵管理員</div></div>
         </div>
         <div className="flex items-center justify-between px-2"><button className="flex items-center gap-2 text-xs text-white/60 hover:text-white"><HelpCircle size={14} />操作指南</button><button onClick={onLogout} className="flex items-center gap-1.5 text-xs text-white/60 hover:text-white"><LogOut size={14} />登出</button></div>
       </div>
@@ -99,10 +94,6 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
               ))}
             </div>
           )}
-        </div>
-        <div className="flex items-center gap-2.5">
-          <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-brand to-violet text-sm font-bold text-white">林</div>
-          <div className="hidden leading-tight sm:block"><div className="text-[13px] font-semibold">林怡君</div><div className="text-[11px] text-sub">法遵管理員</div></div>
         </div>
       </div>
     </header>

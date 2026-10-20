@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { CalendarDays, CheckCircle2, GripVertical, LayoutGrid, List, Move, Plus, Trash2 } from "lucide-react";
 import { DEPTS, OWNERS, TOPICS, type Pri, type Task } from "../data";
-import { Badge, Card, Modal, Notice, PageHeader, PrimaryBtn, Segmented, Select, cn } from "../ui";
+import { Badge, Card, Modal, PageHeader, PrimaryBtn, Segmented, Select, cn } from "../ui";
 import { useStore } from "../store";
 
 const COLS = [
@@ -70,7 +70,6 @@ export default function Kanban() {
   return (
     <>
       <PageHeader title="待辦看板" sub="追蹤法規因應進度，從確認到完成，讓每項事務都有責任與期限。" action={<PrimaryBtn onClick={() => setModal(true)}><Plus size={16} />新增任務</PrimaryBtn>} />
-      <Notice />
       <div className="flex flex-wrap items-center gap-3">
         <Select label="部門" value={f.dept} options={["全部", ...DEPTS]} onChange={(v) => setF({ ...f, dept: v })} />
         <Select label="主題" value={f.topic} options={["全部", ...TOPICS]} onChange={(v) => setF({ ...f, topic: v })} />

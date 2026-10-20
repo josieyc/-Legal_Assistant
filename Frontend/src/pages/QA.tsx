@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Copy, History, Lock, ListTodo, Plus, Search, Send, Settings2, ShieldCheck, Sparkles, ThumbsDown, ThumbsUp, TriangleAlert } from "lucide-react";
 import { CONVOS, DOCS, SUGGESTS, type Convo, type Msg } from "../data";
-import { Badge, Card, GhostBtn, Marquee, Notice, PageHeader, PrimaryBtn, Segmented, cn } from "../ui";
+import { Badge, Card, GhostBtn, Marquee,  PageHeader, PrimaryBtn, Segmented, cn } from "../ui";
 import { useStore } from "../store";
 
 function reply(q: string, docs: string[]): Msg {
@@ -62,7 +62,6 @@ export default function QA() {
   return (
     <>
       <PageHeader title="法規問答" sub="限定已核定的法規範圍回答，每個答案皆能追溯到來源。" action={<PrimaryBtn onClick={newChat}><Plus size={16} />新增對話</PrimaryBtn>} />
-      <Notice />
       <div className="grid items-start gap-5 lg:grid-cols-[320px_1fr]">
         <div className="space-y-5 lg:sticky lg:top-2">
           <Card className="p-5">
