@@ -32,7 +32,7 @@ def get_policy_risk_events(
     輸入契約：
         db_session 必須是 FastAPI dependency 提供且可查詢的 SQLAlchemy Session。
     函式效果：
-        查詢風險事件編號、產業、法規名稱、主題、風險、受影響部門、發布日期及狀態；
+        查詢風險事件編號、適用產業陣列、法規名稱、主題、風險、受影響部門、發布日期及狀態；
         不修改資料庫。
     輸出結果：
         回傳風險事件列表；沒有資料時回傳空列表，資料庫錯誤則由 FastAPI 向外處理。

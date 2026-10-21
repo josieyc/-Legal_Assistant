@@ -406,10 +406,10 @@ def list_policy_risk_events(
         state 若有提供，僅查詢狀態完全相符的事件。
     函式效果：
         從政策風險事件連結法規異動、法規、部門及產業資料；僅讀取資料庫，
-        不提交交易或修改任何資料。同一法規連結多個產業時，每個產業各回傳一筆。
+        不提交交易或修改任何資料。同一法規連結的產業會彙整於 industry 陣列。
     輸出結果：
-        回傳包含風險事件編號，並依發布日期新到舊、風險事件編號及產業名稱排序的字典列表；
-        部門或產業未建立關聯時，對應欄位為 None。資料庫查詢錯誤會向外傳遞。
+        回傳包含風險事件編號，並依發布日期新到舊及風險事件編號排序的字典列表；
+        部門未建立關聯時為 None，產業未建立關聯時為空陣列。資料庫查詢錯誤會向外傳遞。
     """
     affected_event_counts = (
         select(
@@ -427,7 +427,7 @@ def list_policy_risk_events(
     statement = (
         select(
             PolicyRiskEvent.risk_event_id.label("risk_event_id"),
-            Industry.industry_name.label("industry"),
+            Act.act_id.label("_act_id"),
             Act.act_name.label("act_name"),
             PolicyRiskEvent.topic.label("topic"),
             PolicyRiskEvent.obligation_intensity.label("_obligation_intensity"),
@@ -447,19 +447,30 @@ def list_policy_risk_events(
         )
         .join(Act, ActChangeEvent.act_id == Act.act_id)
         .outerjoin(Department, PolicyRiskEvent.department_id == Department.department_id)
-        .outerjoin(ActIndustry, Act.act_id == ActIndustry.act_id)
-        .outerjoin(Industry, ActIndustry.industry_id == Industry.industry_id)
     )
     if state is not None:
         statement = statement.where(PolicyRiskEvent.state == state)
     statement = statement.order_by(
         ActChangeEvent.event_date.desc(),
         PolicyRiskEvent.risk_event_id,
-        Industry.industry_name,
     )
+    rows = list(db_session.execute(statement).mappings())
+    act_ids = {row["_act_id"] for row in rows}
+    industries_by_act: dict[int, list[str]] = {act_id: [] for act_id in act_ids}
+    if act_ids:
+        industry_statement = (
+            select(ActIndustry.act_id, Industry.industry_name)
+            .join(Industry, ActIndustry.industry_id == Industry.industry_id)
+            .where(ActIndustry.act_id.in_(act_ids))
+            .order_by(ActIndustry.act_id, Industry.industry_name)
+        )
+        for act_id, industry_name in db_session.execute(industry_statement):
+            industries_by_act[act_id].append(industry_name)
+
     results = []
-    for row in db_session.execute(statement).mappings():
+    for row in rows:
         event = dict(row)
+        event["industry"] = industries_by_act[event.pop("_act_id")]
         event["risk"] = (
             _category_score(
                 event.pop("_obligation_intensity"),

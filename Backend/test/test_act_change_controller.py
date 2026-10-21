@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from Backend.controllers.act_change_controller import (
     TEST_ACT_INDUSTRIES,
+    analyze_act_industries,
     compare_act_change_event_versions,
     trigger_act_change_events,
 )
@@ -109,12 +110,31 @@ class ActChangeControllerTests(unittest.TestCase):
         self.assertEqual(
             {
                 "act_name": "測試法",
+                "industries": [],
                 "article": 3,
                 "change_type": "修正",
                 "last_version": {"version_id": "20260601", "content": "舊內容"},
                 "new_version": {"version_id": "20261012", "content": "新內容"},
             },
             result["events"][0],
+        )
+
+    def test_analyze_act_industries_uses_fixed_test_mapping(self) -> None:
+        """固定測試法規可比對複數產業，未知法規則不推測產業。"""
+        self.assertEqual(
+            ("銀行業", "證券業", "保險業", "電子支付業"),
+            analyze_act_industries("金融機構防制洗錢作業準則"),
+        )
+        self.assertEqual((), analyze_act_industries("未知法規"))
+
+    def test_analyze_act_industries_removes_duplicate_names(self) -> None:
+        """自訂固定對照中的重複產業只回傳一次並維持原順序。"""
+        self.assertEqual(
+            ("銀行業", "證券業"),
+            analyze_act_industries(
+                "測試法",
+                {"測試法": ("銀行業", "證券業", "銀行業")},
+            ),
         )
 
     def test_unchanged_history_does_not_create_event(self) -> None:

@@ -24,9 +24,15 @@ ARTICLE_NUMBER_PATTERN = re.compile(r"\d+")
 
 # TODO: 待正式產業分類規則或模型完成後，移除此測試資料專用固定對照。
 TEST_ACT_INDUSTRIES: dict[str, tuple[str, ...]] = {
-    "存款帳戶及其疑似不法或顯屬異常交易管理辦法": ("銀行業",),
-    "保險業辦理國外投資管理辦法": ("保險業",),
-    "發行人募集與發行有價證券處理準則": ("證券業",),
+    "金融機構防制洗錢作業準則": ("銀行業", "證券業", "保險業", "電子支付業"),
+    "金融服務消費者保護作業規範": ("銀行業", "證券業", "保險業", "電子支付業"),
+    "金融機構資訊安全管理要點": ("銀行業", "證券業", "保險業", "電子支付業"),
+    "授信業務風險管理作業指引": ("銀行業",),
+    "金融機構個人資料保護規範": ("銀行業", "證券業", "保險業", "電子支付業"),
+    "電子支付機構業務管理規則": ("電子支付業",),
+    "金融機構客戶資料揭露指引": ("銀行業", "證券業", "保險業", "電子支付業"),
+    "銀行業內部控制及稽核制度實施辦法": ("銀行業",),
+    "金融機構委外作業及監督辦法": ("銀行業", "證券業", "保險業", "電子支付業"),
 }
 
 
@@ -48,6 +54,23 @@ class ArticleChange:
     change_type: str
 
 
+def analyze_act_industries(
+    act_name: str,
+    industry_mapping: dict[str, tuple[str, ...]] = TEST_ACT_INDUSTRIES,
+) -> tuple[str, ...]:
+    """以固定測試對照分析法規適用產業。
+
+    輸入契約：
+        act_name 必須是法規名稱字串；industry_mapping 以法規名稱為鍵、產業名稱 tuple
+        為值，預設使用目前測試 XML 的固定對照。
+    函式效果：
+        只依完整法規名稱進行比對，不修改對照內容、檔案或資料庫。
+    輸出結果：
+        比對成功時回傳去除重複且維持原順序的產業名稱 tuple；沒有固定對照時回傳空 tuple。
+    """
+    return tuple(dict.fromkeys(industry_mapping.get(act_name, ())))
+
+
 def build_change_event_response(
     previous: LawVersion,
     current: LawVersion,
@@ -58,14 +81,16 @@ def build_change_event_response(
     輸入契約：
         previous 與 current 必須為同一法規的前後版本；change 必須是兩版本的比對結果。
     函式效果：
-        組合法規名稱、異動資訊及新舊條文內容；不修改檔案、版本資料或資料庫。
+        組合法規名稱、固定產業比對結果、異動資訊及新舊條文內容；不修改檔案、
+        版本資料或資料庫。
     輸出結果：
-        回傳包含法規名稱、條號、異動類型、舊版本與新版本的字典；沿革異動沒有
-        條號時，新舊條文內容皆為 None。
+        回傳包含法規名稱、產業陣列、條號、異動類型、舊版本與新版本的字典；
+        沿革異動沒有條號時，新舊條文內容皆為 None。
     """
     article = change.article
     return {
         "act_name": current.name,
+        "industries": list(analyze_act_industries(current.name)),
         "article": article,
         "change_type": change.change_type,
         "last_version": {
@@ -380,7 +405,7 @@ def trigger_act_change_events(
             created_industry_relation_count += _create_missing_act_industries(
                 db_session,
                 act,
-                TEST_ACT_INDUSTRIES.get(act_name, ()),
+                analyze_act_industries(act_name),
             )
             for change in changes:
                 if _event_exists(

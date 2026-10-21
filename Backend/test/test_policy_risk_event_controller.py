@@ -187,7 +187,7 @@ class PolicyRiskEventControllerTests(unittest.TestCase):
         self.assertEqual([], events)
 
     def test_list_policy_risk_events_returns_requested_joined_fields(self) -> None:
-        """列表查詢回傳指定欄位、展開產業，並計算四構面風險總分。"""
+        """列表查詢回傳指定欄位、彙整產業，並計算四構面風險總分。"""
         expected_act_name = "金融服務消費者保護作業規範"
         with Session(self.engine) as session:
             self._stage_prerequisites(session)
@@ -204,10 +204,13 @@ class PolicyRiskEventControllerTests(unittest.TestCase):
                 )
             )
             change.penalty = "2"
-            industry = Industry(industry_name="證券業")
-            session.add(industry)
+            industries = [Industry(industry_name="證券業"), Industry(industry_name="銀行業")]
+            session.add_all(industries)
             session.flush()
-            session.add(ActIndustry(act_id=act.act_id, industry_id=industry.industry_id))
+            session.add_all(
+                ActIndustry(act_id=act.act_id, industry_id=industry.industry_id)
+                for industry in industries
+            )
             session.commit()
 
             results = list_policy_risk_events(session)
@@ -229,7 +232,11 @@ class PolicyRiskEventControllerTests(unittest.TestCase):
             set(securities_event),
         )
         self.assertIsInstance(securities_event["risk_event_id"], int)
-        self.assertEqual("證券業", securities_event["industry"])
+        self.assertEqual(["證券業", "銀行業"], securities_event["industry"])
+        self.assertEqual(
+            1,
+            sum(event["act_name"] == expected_act_name for event in results),
+        )
         self.assertEqual("客服部", securities_event["affected_department"])
         self.assertEqual("2026-10-11", securities_event["event_date"])
         self.assertEqual("Pending", securities_event["status"])
@@ -312,7 +319,7 @@ class PolicyRiskEventControllerTests(unittest.TestCase):
             results = list_policy_risk_events(session)
 
         self.assertEqual(1, len(results))
-        self.assertIsNone(results[0]["industry"])
+        self.assertEqual([], results[0]["industry"])
         self.assertIsNone(results[0]["affected_department"])
 
     def test_list_policy_risk_events_filters_by_state(self) -> None:
