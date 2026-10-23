@@ -7,16 +7,12 @@ from sqlalchemy.orm import Session
 
 from Backend.controllers.act_change_controller import (
     compare_act_change_event_versions,
-    trigger_act_change_events,
 )
 from Backend.controllers.firm_policy_import_controller import (
     parse_firm_policy_xml,
     stage_firm_policy_import,
 )
-from Backend.controllers.policy_risk_event_controller import (
-    create_fixed_policy_risk_event,
-    list_policy_risk_events,
-)
+from Backend.controllers.policy_risk_event_controller import list_policy_risk_events
 from Backend.database.connect import get_db_session
 
 app = APIRouter(tags=["legal"])
@@ -40,20 +36,6 @@ def get_policy_risk_events(
     return list_policy_risk_events(db_session)
 
 
-@app.get("/act_change_event")
-def act_change_event(db_session: Session = Depends(get_db_session)) -> dict[str, object]:
-    """觸發測試法規資料的異動比對。
-
-    輸入契約：
-        db_session 必須是 FastAPI dependency 提供且可寫入的 SQLAlchemy Session。
-    函式效果：
-        將請求轉交 controller，比對測試 XML 並保存尚未存在的法規異動事件。
-    輸出結果：
-        回傳包含比對狀態、差異筆數及新增資料筆數的字典；解析或資料庫錯誤向外傳遞。
-    """
-    return trigger_act_change_events(db_session)
-
-
 @app.get("/act_change_event/versions")
 def get_act_change_event_versions() -> dict[str, object]:
     """取得測試法規資料的新舊版本比較結果。
@@ -68,26 +50,6 @@ def get_act_change_event_versions() -> dict[str, object]:
         檔案或 XML 解析錯誤由 FastAPI 向外處理。
     """
     return compare_act_change_event_versions()
-
-
-@app.post("/policy_risk_event", status_code=201)
-def policy_risk_event(
-    db_session: Session = Depends(get_db_session),
-) -> dict[str, object]:
-    """新增固定的測試政策風險事件。
-
-    輸入契約：
-        db_session 必須是 FastAPI dependency 提供且可寫入的 SQLAlchemy Session；
-        資料庫應先完成法規異動測試資料建立及公司內規測試 XML 匯入。
-    函式效果：
-        新增一批 state 為 Pending 的固定 PolicyRiskEvent 並提交；每次呼叫皆新增完整一批。
-    輸出結果：
-        成功時回傳 HTTP 201、新增筆數與事件明細；缺少必要測試資料時拋出 HTTPException 409。
-    """
-    try:
-        return create_fixed_policy_risk_event(db_session)
-    except LookupError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @app.post("/firm-policy/import")

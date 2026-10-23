@@ -51,7 +51,7 @@ class PolicyRiskEventLog(Base):
     to_state: Mapped[str | None] = mapped_column(Text, nullable=True)
     detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     changes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    create_at: Mapped[str] = mapped_column(
+    created_at: Mapped[str] = mapped_column(
         Text,
         nullable=False,
         server_default=func.current_timestamp(),

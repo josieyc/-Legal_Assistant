@@ -17,7 +17,7 @@ class MainTestDataFlowTests(unittest.TestCase):
             xml_path = Path(temporary_directory) / "公司內規.xml"
             xml_path.write_bytes(b"<LAWS />")
             client = MagicMock()
-            responses = [MagicMock(), MagicMock(), MagicMock()]
+            responses = [MagicMock(), MagicMock(), MagicMock(), MagicMock()]
             for index, response in enumerate(responses):
                 response.json.return_value = {"step": index + 1}
             client.get.return_value = responses[0]
@@ -26,18 +26,26 @@ class MainTestDataFlowTests(unittest.TestCase):
 
             results = run_test_data_flow(client, xml_path, progress_messages.append)
 
-            self.assertEqual([{"step": 1}, {"step": 2}, {"step": 3}], results)
-            self.assertEqual([call("/act/act_change_event")], client.get.call_args_list)
-            self.assertEqual("/act/firm-policy/import", client.post.call_args_list[0].args[0])
+            self.assertEqual(
+                [{"step": 1}, {"step": 2}, {"step": 3}, {"step": 4}],
+                results,
+            )
+            self.assertEqual([call("/test/act_change_event")], client.get.call_args_list)
+            self.assertEqual("/test/firm-policy/import", client.post.call_args_list[0].args[0])
             uploaded_file = client.post.call_args_list[0].kwargs["files"]["xml_file"]
             self.assertEqual("公司內規.xml", uploaded_file[0])
             self.assertEqual("application/xml", uploaded_file[2])
-            self.assertEqual(call("/act/policy_risk_event"), client.post.call_args_list[1])
+            self.assertEqual(
+                call("/test/firm-policy/version-history"),
+                client.post.call_args_list[1],
+            )
+            self.assertEqual(call("/test/policy_risk_event"), client.post.call_args_list[2])
             self.assertEqual(
                 [
-                    "已觸發路徑：GET /act/act_change_event",
-                    "已觸發路徑：POST /act/firm-policy/import",
-                    "已觸發路徑：POST /act/policy_risk_event",
+                    "已觸發路徑：GET /test/act_change_event",
+                    "已觸發路徑：POST /test/firm-policy/import",
+                    "已觸發路徑：POST /test/firm-policy/version-history",
+                    "已觸發路徑：POST /test/policy_risk_event",
                 ],
                 progress_messages,
             )

@@ -17,6 +17,7 @@ if __package__ in {None, ""}:
 
 from Backend.routers.act_router import app as legal_router
 from Backend.routers.policy_router import app as policy_router
+from Backend.routers.test_router import app as test_router
 from Backend.llm import router as llm_router
 from Backend.database.init_db import main as init_db
 from Backend.utils.test_data_flow import run_test_data_flow
@@ -53,6 +54,7 @@ app.add_middleware(
 app.include_router(legal_router,prefix="/act")
 app.include_router(policy_router, prefix="/policy")
 app.include_router(llm_router)
+app.include_router(test_router, prefix="/test")
 
 
 # 提供簡單的健康檢查端點，確認 API 伺服器可正常回應。

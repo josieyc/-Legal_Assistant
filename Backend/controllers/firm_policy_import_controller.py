@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from Backend.controllers.firm_policy_embedding import vectorize_policy_article
-from Backend.models.firm_policy import FirmPolicy, FirmPolicyArticle
+from Backend.models.firm_policy import FirmPolicy, FirmPolicyArticle, FirmPolicyVersion
 
 
 ARTICLE_NUMBER_PATTERN = re.compile(r"\d+")
@@ -135,7 +135,8 @@ def build_firm_policy_orm(parsed_policy: ParsedFirmPolicy) -> FirmPolicy:
     輸入契約：
         parsed_policy 必須包含非空名稱及至少一筆已驗證條文。
     函式效果：
-        僅在記憶體建立 FirmPolicy 與 FirmPolicyArticle，不操作 Session 或資料庫。
+        僅在記憶體建立 FirmPolicy、FirmPolicyVersion 與 FirmPolicyArticle，
+        不操作 Session 或資料庫。
     輸出結果：
         回傳已建立條文關聯、尚未持久化的 FirmPolicy ORM 物件。
     """
@@ -143,15 +144,22 @@ def build_firm_policy_orm(parsed_policy: ParsedFirmPolicy) -> FirmPolicy:
         policy_name=parsed_policy.name,
         description=parsed_policy.description,
     )
-    policy.articles.extend(
+    version = FirmPolicyVersion(
+        version_no="1",
+        description=parsed_policy.description,
+        status="Effective",
+    )
+    version.articles.extend(
         FirmPolicyArticle(
-            chapter=article.chapter,
             article=article.article,
+            article_key=f"{article.chapter}::第{article.article}條",
             context=article.context,
             embedding=vectorize_policy_article(article.article, article.context), #TODO: 目前僅限使用「測試資料_公司法規」
         )
         for article in parsed_policy.articles
     )
+    policy.versions.append(version)
+    policy.current_version = version
     return policy
 
 

@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS policy_risk_event (
     confidence_level INTEGER CHECK (confidence_level BETWEEN 0 AND 100),
     suggest_next_step TEXT,
     suggest_due_date TEXT,
-    create_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (act_change_event_id)
         REFERENCES act_change_event (act_change_event_id)
         ON UPDATE CASCADE

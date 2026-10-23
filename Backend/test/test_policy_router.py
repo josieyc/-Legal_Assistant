@@ -17,6 +17,7 @@ from Backend.models import (
     Base,
     FirmPolicy,
     FirmPolicyArticle,
+    FirmPolicyVersion,
     PolicyRiskEvent,
     PolicyRiskEventLog,
     User,
@@ -35,14 +36,17 @@ class PolicyRouterTests(unittest.TestCase):
         Base.metadata.create_all(self.engine)
         with Session(self.engine) as session:
             policy = FirmPolicy(policy_name="測試內規", description="測試說明")
-            policy.articles.append(
+            version = FirmPolicyVersion(version_no="1", status="Effective")
+            version.articles.append(
                 FirmPolicyArticle(
-                    chapter="第一章　總則",
+                    article_key="第一章　總則::第1條",
                     article=1,
                     context="第一條內容",
                     embedding=b"secret-vector",
                 )
             )
+            policy.versions.append(version)
+            policy.current_version = version
             session.add(policy)
             session.commit()
             self.policy_id = policy.policy_id
@@ -67,8 +71,11 @@ class PolicyRouterTests(unittest.TestCase):
         self.assertEqual(200, response.status_code)
         payload = response.json()
         self.assertEqual("測試內規", payload[0]["policy_name"])
-        self.assertEqual("第一條內容", payload[0]["articles"][0]["context"])
-        self.assertNotIn("embedding", payload[0]["articles"][0])
+        current_version = payload[0]["current_version"]
+        self.assertEqual("1", current_version["version_no"])
+        self.assertEqual("Effective", current_version["status"])
+        self.assertEqual("第一條內容", current_version["articles"][0]["context"])
+        self.assertNotIn("embedding", current_version["articles"][0])
         self.assertNotIn("secret-vector", response.text)
 
     def test_get_policy_risk_events_filters_by_required_state(self) -> None:
@@ -82,6 +89,17 @@ class PolicyRouterTests(unittest.TestCase):
         self.assertEqual(200, response.status_code)
         list_events.assert_called_once()
         self.assertEqual("Pending", list_events.call_args.kwargs["state"])
+
+    @patch("Backend.routers.policy_router.read_policy_risk_events")
+    def test_read_policy_risk_events_uses_get_policy_path(self, read_mock) -> None:
+        """既有風險事件由 policy GET 路由讀取。"""
+        read_mock.return_value = {"status": "created", "created_count": 1}
+
+        response = self.client.get("/policy/policy_risk_event")
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("created", response.json()["status"])
+        read_mock.assert_called_once()
 
     def test_get_policy_risk_events_requires_valid_state(self) -> None:
         """缺少或使用不支援的狀態時回傳 422。"""
@@ -255,20 +273,56 @@ class PolicyRouterTests(unittest.TestCase):
 
         self.assertEqual(200, response.status_code)
         self.assertEqual(self.policy_id, response.json()["policy_id"])
-        self.assertNotIn("embedding", response.json()["articles"][0])
+        article = response.json()["current_version"]["articles"][0]
+        self.assertEqual(response.json()["current_version_id"], article["policy_version_id"])
+        self.assertNotIn("embedding", article)
 
-    def test_health_returns_each_chapter_and_deduplicates_affected_articles(self) -> None:
+    def test_get_policy_versions_returns_count_and_descriptions(self) -> None:
         with Session(self.engine) as session:
             policy = session.get(FirmPolicy, self.policy_id)
-            policy.articles.extend(
+            policy.current_version.description = "目前版本說明"
+            policy.versions.append(
+                FirmPolicyVersion(
+                    version_no="0.9",
+                    description="歷史版本說明",
+                    status="Superseded",
+                    effective_at="2025-01-01",
+                )
+            )
+            session.commit()
+
+        response = self.client.get(
+            f"/policy/firm-policies/{self.policy_id}/versions"
+        )
+
+        self.assertEqual(200, response.status_code)
+        payload = response.json()
+        self.assertEqual(self.policy_id, payload["policy_id"])
+        self.assertEqual("測試內規", payload["policy_name"])
+        self.assertEqual(2, payload["version_count"])
+        self.assertEqual(
+            ["歷史版本說明", "目前版本說明"],
+            [version["description"] for version in payload["versions"]],
+        )
+
+    def test_get_policy_versions_returns_404_when_policy_is_missing(self) -> None:
+        response = self.client.get("/policy/firm-policies/999/versions")
+
+        self.assertEqual(404, response.status_code)
+        self.assertEqual("找不到公司內規", response.json()["detail"])
+
+    def test_health_returns_current_version_and_deduplicates_affected_articles(self) -> None:
+        with Session(self.engine) as session:
+            policy = session.get(FirmPolicy, self.policy_id)
+            policy.current_version.articles.extend(
                 [
                     FirmPolicyArticle(
-                        chapter="第一章　總則",
+                        article_key="第一章　總則::第2條",
                         article=2,
                         context="第一章未受影響條文",
                     ),
                     FirmPolicyArticle(
-                        chapter="第二章　作業規範",
+                        article_key="第二章　作業規範::第3條",
                         article=3,
                         context="第二章未受影響條文",
                     ),
@@ -283,9 +337,9 @@ class PolicyRouterTests(unittest.TestCase):
             session.add(change_event)
             session.flush()
             affected_article_id = session.scalar(
-                select(FirmPolicyArticle.policy_article_id).where(
-                    FirmPolicyArticle.policy_id == self.policy_id
-                )
+                select(FirmPolicyArticle.policy_article_id)
+                .join(FirmPolicyVersion)
+                .where(FirmPolicyVersion.policy_id == self.policy_id)
             )
             session.add_all(
                 [
@@ -304,24 +358,25 @@ class PolicyRouterTests(unittest.TestCase):
                 ]
             )
             session.commit()
+            current_policy_version_id = policy.current_version_id
 
         response = self.client.get("/policy/health")
 
         self.assertEqual(200, response.status_code)
-        self.assertEqual(2, len(response.json()))
+        self.assertEqual(1, len(response.json()))
         self.assertEqual(
             {
                 "policy_id": self.policy_id,
                 "policy_name": "測試內規",
-                "chapter": "第一章　總則",
+                "policy_version_id": current_policy_version_id,
+                "version_no": "1",
                 "affected_article_count": 1,
-                "total_article_count": 2,
-                "health": 50.0,
+                "total_article_count": 3,
+                "health": 66.67,
             },
             response.json()[0],
         )
-        self.assertEqual(100.0, response.json()[1]["health"])
-        self.assertNotIn("one_minus_health", response.json()[1])
+        self.assertNotIn("chapter", response.json()[0])
 
     def test_health_is_zero_when_there_are_no_chapters(self) -> None:
         with Session(self.engine) as session:

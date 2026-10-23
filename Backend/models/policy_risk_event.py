@@ -73,7 +73,7 @@ class PolicyRiskEvent(Base):
     confidence_level: Mapped[int | None] = mapped_column(Integer, nullable=True)
     suggest_next_step: Mapped[str | None] = mapped_column(Text, nullable=True)
     suggest_due_date: Mapped[str | None] = mapped_column(Text, nullable=True)
-    create_at: Mapped[str] = mapped_column(
+    created_at: Mapped[str] = mapped_column(
         Text,
         nullable=False,
         server_default=func.current_timestamp(),

@@ -14,6 +14,7 @@ from Backend.controllers.policy_risk_event_controller import (
     find_policy_risk_event,
     list_policy_risk_events,
     load_policy_risk_event_seeds,
+    read_policy_risk_events,
 )
 from Backend.models import (
     Act,
@@ -24,6 +25,7 @@ from Backend.models import (
     Department,
     FirmPolicy,
     FirmPolicyArticle,
+    FirmPolicyVersion,
     Industry,
     PolicyRiskEvent,
 )
@@ -79,8 +81,13 @@ class PolicyRiskEventControllerTests(unittest.TestCase):
                 event_date=f"{version_id[:4]}-{version_id[4:6]}-{version_id[6:]}",
             ))
         policy = FirmPolicy(policy_name="金融業務法令遵循作業規則")
+        policy_version = FirmPolicyVersion(version_no="1", status="Effective")
         for number in sorted({seed.policy_article for seed in seeds}):
-            policy.articles.append(FirmPolicyArticle(article=number, context=f"測試內規第 {number} 條"))
+            policy_version.articles.append(FirmPolicyArticle(
+                article=number, article_key=f"第{number}條", context=f"測試內規第 {number} 條"
+            ))
+        policy.versions.append(policy_version)
+        policy.current_version = policy_version
         departments = [Department(department_name=name) for name in sorted(
             {seed.department_name for seed in seeds}
         )]
@@ -117,6 +124,21 @@ class PolicyRiskEventControllerTests(unittest.TestCase):
             {(8, 6, "營運部"), (12, 8, "資訊部"), (16, 18, "法遵部")},
             aml_article_mappings,
         )
+
+    def test_read_returns_persisted_events_with_ids_without_new_inserts(self) -> None:
+        """讀取會回傳既有事件及真實 ID，但不新增額外資料。"""
+        with Session(self.engine) as session:
+            self._stage_prerequisites(session)
+            created = create_fixed_policy_risk_event(session)
+            result = read_policy_risk_events(session)
+            events = session.scalars(select(PolicyRiskEvent)).all()
+
+        self.assertEqual("created", result["status"])
+        self.assertEqual(created["created_count"], result["created_count"])
+        self.assertEqual(result["created_count"], len(result["events"]))
+        self.assertEqual(result["created_count"], len(events))
+        self.assertTrue(all(event["risk_event_id"] is not None for event in result["events"]))
+        self.assertTrue(all(event["state"] == "Pending" for event in result["events"]))
 
     def test_seed_data_covers_frontend_demo_and_legal_data_changes(self) -> None:
         """固定資料須涵蓋 demo 九項法規及 XML 中全部實質異動條文。

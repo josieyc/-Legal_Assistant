@@ -18,6 +18,8 @@ from Backend.models import (
     FirmPolicy,
     FirmPolicyArticle,
     FirmPolicyChangeRecord,
+    FirmPolicyRelative,
+    FirmPolicyVersion,
     Industry,
     PolicyRiskEvent,
     PolicyRiskEventLog,
@@ -49,6 +51,8 @@ class ModelMappingTests(unittest.TestCase):
             "firm_policy",
             "firm_policy_article",
             "firm_policy_change_record",
+            "firm_policy_relative",
+            "firm_policy_version",
             "industry",
             "policy_risk_event",
             "policy_risk_event_log",
@@ -162,10 +166,18 @@ class ModelMappingTests(unittest.TestCase):
             event_date="2026-10-12",
         )
         policy = FirmPolicy(policy_id=1, policy_name="洗錢防制政策")
+        policy_version = FirmPolicyVersion(
+            policy_version_id=1,
+            policy=policy,
+            version_no="1",
+            status="Effective",
+        )
+        policy.current_version = policy_version
         policy_article = FirmPolicyArticle(
             policy_article_id=1,
-            policy=policy,
+            policy_version=policy_version,
             article=1,
+            article_key="第1條",
             context="應執行客戶身分確認。",
             embedding=b"vector",
         )
@@ -180,7 +192,7 @@ class ModelMappingTests(unittest.TestCase):
         risk_event.policy_change_records.append(
             FirmPolicyChangeRecord(
                 policy_change_id=1,
-                policy=policy,
+                policy_version=policy_version,
                 policy_article=policy_article,
                 old_context="舊條文",
                 new_context="新條文",

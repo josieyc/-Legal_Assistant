@@ -9,11 +9,13 @@ from sqlalchemy.orm import Session
 from Backend.controllers.firm_policy_query_controller import (
     find_firm_policy,
     get_policy_health,
+    list_firm_policy_versions,
     list_firm_policies,
 )
 from Backend.controllers.policy_risk_event_controller import (
     find_policy_risk_event,
     list_policy_risk_events,
+    read_policy_risk_events,
     review_policy_risk_event_draft,
     submit_policy_risk_event_review,
 )
@@ -27,6 +29,14 @@ PolicyRiskEventState = Literal[
     "ReanalysisRequired",
     "Closed",
 ]
+
+
+@app.get("/policy_risk_event")
+def get_policy_risk_event_records(
+    db_session: Session = Depends(get_db_session),
+) -> dict[str, object]:
+    """讀取資料庫中既有的政策風險事件，不修改資料庫。"""
+    return read_policy_risk_events(db_session)
 
 
 class PolicyRiskEventReviewDraftRequest(BaseModel):
@@ -47,6 +57,75 @@ class PolicyRiskEventReviewDraftRequest(BaseModel):
 
 class PolicyRiskEventReviewRequest(PolicyRiskEventReviewDraftRequest):
     """審核提交內容；除 actor_id 外的欄位均為選填修正。"""
+
+
+class FirmPolicyArticleResponse(BaseModel):
+    """公司內規版本條文的公開欄位。"""
+
+    policy_article_id: int
+    policy_version_id: int
+    article: int | None
+    paragraph: int | None
+    subparagraph: int | None
+    item: int | None
+    article_key: str
+    context: str
+
+
+class FirmPolicyVersionResponse(BaseModel):
+    """公司內規目前版本及其條文。"""
+
+    policy_version_id: int
+    policy_id: int
+    version_no: str
+    based_on_version_id: int | None
+    description: str | None
+    status: str
+    effective_at: str | None
+    articles: list[FirmPolicyArticleResponse]
+
+
+class FirmPolicyResponse(BaseModel):
+    """公司內規主檔與目前版本。"""
+
+    policy_id: int
+    policy_name: str
+    description: str | None
+    created_at: str
+    current_version_id: int | None
+    current_version: FirmPolicyVersionResponse | None
+
+
+class PolicyHealthResponse(BaseModel):
+    """公司內規目前版本的條文健康度。"""
+
+    policy_id: int
+    policy_name: str
+    policy_version_id: int
+    version_no: str
+    affected_article_count: int
+    total_article_count: int
+    health: float
+
+
+class FirmPolicyVersionSummaryResponse(BaseModel):
+    """公司內規版本清單的單筆摘要。"""
+
+    policy_version_id: int
+    version_no: str
+    based_on_version_id: int | None
+    description: str | None
+    status: str
+    effective_at: str | None
+
+
+class FirmPolicyVersionListResponse(BaseModel):
+    """公司內規的版本總數與版本清單。"""
+
+    policy_id: int
+    policy_name: str
+    version_count: int
+    versions: list[FirmPolicyVersionSummaryResponse]
 
 
 @app.get("/policy-risk-events")
@@ -143,25 +222,25 @@ def post_policy_risk_event_review(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@app.get("/health")
+@app.get("/health", response_model=list[PolicyHealthResponse])
 def get_health(
     db_session: Session = Depends(get_db_session),
 ) -> list[dict[str, object]]:
-    """取得每個內規章節受影響條文占全部條文的健康度。
+    """取得每個內規目前版本受影響條文占全部條文的健康度。
 
     輸入契約：
         db_session 必須由 FastAPI dependency 提供，且為可查詢的 SQLAlchemy Session。
     函式效果：
-        將請求轉交 controller，依內規與章節計算去重後的受影響條文占比；
+        將請求轉交 controller，依內規目前版本計算去重後的受影響條文占比；
         不修改資料庫。
     輸出結果：
-        回傳章節健康度陣列，其中 health 為 100 減去受影響條文占比；
+        回傳版本健康度陣列，其中 health 為 100 減去受影響條文占比；
         沒有任何內規條文時回傳空陣列。
     """
     return get_policy_health(db_session)
 
 
-@app.get("/firm-policies")
+@app.get("/firm-policies", response_model=list[FirmPolicyResponse])
 def get_firm_policies(
     db_session: Session = Depends(get_db_session),
 ) -> list[dict[str, object]]:
@@ -177,7 +256,7 @@ def get_firm_policies(
     return list_firm_policies(db_session)
 
 
-@app.get("/firm-policies/{policy_id}")
+@app.get("/firm-policies/{policy_id}", response_model=FirmPolicyResponse)
 def get_firm_policy(
     policy_id: int,
     db_session: Session = Depends(get_db_session),
@@ -194,5 +273,20 @@ def get_firm_policy(
     """
     try:
         return find_firm_policy(db_session, policy_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get(
+    "/firm-policies/{policy_id}/versions",
+    response_model=FirmPolicyVersionListResponse,
+)
+def get_firm_policy_versions(
+    policy_id: int,
+    db_session: Session = Depends(get_db_session),
+) -> dict[str, object]:
+    """取得指定公司內規的版本總數與各版本說明。"""
+    try:
+        return list_firm_policy_versions(db_session, policy_id)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

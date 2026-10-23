@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS policy_risk_event_log (
     ),
     detail TEXT,
     changes TEXT,
-    create_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (risk_event_id)
         REFERENCES policy_risk_event (risk_event_id)
         ON UPDATE CASCADE

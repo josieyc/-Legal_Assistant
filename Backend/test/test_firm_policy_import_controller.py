@@ -63,9 +63,9 @@ class FirmPolicyImportControllerTests(unittest.TestCase):
         policy = build_firm_policy_orm(parsed_policy)
 
         self.assertEqual(parsed_policy.name, policy.policy_name)
-        self.assertEqual(31, len(policy.articles))
-        self.assertIs(policy, policy.articles[0].policy)
-        self.assertTrue(all(article.embedding for article in policy.articles))
+        self.assertEqual(31, len(policy.current_version.articles))
+        self.assertIs(policy, policy.current_version.policy)
+        self.assertTrue(all(article.embedding for article in policy.current_version.articles))
 
     def test_vectorize_sample_article_returns_precomputed_embedding(self) -> None:
         """確認範例第一條會取得預先計算的 384 維語意向量。"""
@@ -111,7 +111,7 @@ class FirmPolicyImportControllerTests(unittest.TestCase):
 
             self.assertIsNotNone(stored_policy)
             self.assertEqual(31, len(stored_articles))
-            self.assertEqual("第一章　總則", stored_articles[0].chapter)
+            self.assertTrue(stored_articles[0].article_key.startswith("第一章　總則::"))
             self.assertTrue(all(article.embedding for article in stored_articles))
         engine.dispose()
 

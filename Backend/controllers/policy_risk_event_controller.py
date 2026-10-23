@@ -15,7 +15,7 @@ from Backend.models.act_change_event import ActChangeEvent
 from Backend.models.act_version import ActVersion
 from Backend.models.associations import ActIndustry
 from Backend.models.core import Act, Department, Industry, User
-from Backend.models.firm_policy import FirmPolicy, FirmPolicyArticle
+from Backend.models.firm_policy import FirmPolicy, FirmPolicyArticle, FirmPolicyVersion
 from Backend.models.policy_risk_event import PolicyRiskEvent
 from Backend.models.policy_risk_event_log import PolicyRiskEventLog
 
@@ -159,8 +159,12 @@ def _find_policy_article(db_session: Session, article_number: int) -> FirmPolicy
         回傳 FirmPolicyArticle；找不到時拋出 LookupError。
     """
     article = db_session.scalar(
-        select(FirmPolicyArticle).join(FirmPolicy).where(
+        select(FirmPolicyArticle)
+        .join(FirmPolicyVersion)
+        .join(FirmPolicy, FirmPolicyVersion.policy_id == FirmPolicy.policy_id)
+        .where(
             FirmPolicy.policy_name == TEST_POLICY_NAME,
+            FirmPolicy.current_version_id == FirmPolicyVersion.policy_version_id,
             FirmPolicyArticle.article == article_number,
         ).order_by(FirmPolicyArticle.policy_article_id)
     )
@@ -203,7 +207,7 @@ def _build_risk_event(db_session: Session, seed: PolicyRiskEventSeed) -> PolicyR
     department = _find_department(db_session, seed.department_name)
     return PolicyRiskEvent(
         act_change_event_id=change.act_change_event_id,
-        policy_id=article.policy_id,
+        policy_id=article.policy_version.policy_id,
         policy_article_id=article.policy_article_id,
         department_id=department.department_id,
         obligation_intensity=seed.obligation_intensity,
@@ -221,7 +225,7 @@ def _serialize_risk_event(risk_event: PolicyRiskEvent) -> dict[str, object]:
     """將已保存的政策風險事件轉為 API 回應字典。
 
     輸入契約：
-        risk_event 必須已提交並具有主鍵與 create_at。
+        risk_event 必須已提交並具有主鍵與 created_at。
     函式效果：
         僅讀取 ORM 欄位，不修改資料庫或物件。
     輸出結果：
@@ -510,6 +514,18 @@ def create_fixed_policy_risk_event(db_session: Session) -> dict[str, object]:
     except Exception:
         db_session.rollback()
         raise
+    return {
+        "status": "created",
+        "created_count": len(risk_events),
+        "events": [_serialize_risk_event(event) for event in risk_events],
+    }
+
+
+def read_policy_risk_events(db_session: Session) -> dict[str, object]:
+    """讀取資料庫中既有的政策風險事件，不修改資料庫。"""
+    risk_events = db_session.scalars(
+        select(PolicyRiskEvent).order_by(PolicyRiskEvent.risk_event_id)
+    ).all()
     return {
         "status": "created",
         "created_count": len(risk_events),
