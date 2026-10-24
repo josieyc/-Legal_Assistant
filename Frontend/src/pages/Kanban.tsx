@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { CalendarDays, CheckCircle2, GripVertical, LayoutGrid, List, Move, Plus, Trash2 } from "lucide-react";
-import { DEPTS, OWNERS, TOPICS, type Pri, type Task } from "../data";
+import { AlertTriangle, CalendarDays, CheckCircle2, GripVertical, LayoutGrid, List, Move, Plus, ShieldCheck, Trash2 } from "lucide-react";
+import { DEPTS, OWNERS, REGS, TOPICS, type Pri, type Task } from "../data";
 import { Badge, Card, Modal, PageHeader, PrimaryBtn, Segmented, Select, cn } from "../ui";
 import { useStore } from "../store";
 
@@ -13,7 +13,7 @@ const priTone = (p: Pri) => (p === "高優先" ? "danger" : p === "中優先" ? 
 const avatarBg = ["#1b59f8", "#7c5cfc", "#0e9fb3", "#e8890c", "#0f9d6b", "#e5484d"];
 
 export default function Kanban() {
-  const { tasks, setTasks, toast, go } = useStore();
+  const { tasks, setTasks, toast, go, setRegId } = useStore();
   const [f, setF] = useState({ dept: "全部", topic: "全部", owner: "全部", pri: "全部" });
   const [view, setView] = useState<"board" | "list">("board");
   const [drag, setDrag] = useState<string | null>(null);
@@ -21,6 +21,10 @@ export default function Kanban() {
   const [overId, setOverId] = useState<string | null>(null);
   const [sel, setSel] = useState<string | null>(null);
   const [modal, setModal] = useState(false);
+  const [completionTask, setCompletionTask] = useState<Task | null>(null);
+  const [evidence, setEvidence] = useState("");
+  const [evidenceFiles, setEvidenceFiles] = useState<string[]>([]);
+  const [reviewer, setReviewer] = useState("");
   const [draft, setDraft] = useState({ title: "", dept: DEPTS[0], owner: OWNERS[0], pri: "中優先" as Pri, topic: TOPICS[0] });
 
   const match = (t: Task) => (f.dept === "全部" || t.dept === f.dept) && (f.topic === "全部" || t.topic === f.topic) && (f.owner === "全部" || t.owner === f.owner) && (f.pri === "全部" || t.pri === f.pri);
@@ -28,17 +32,42 @@ export default function Kanban() {
   const filtered = Object.values(f).some((v) => v !== "全部");
 
   const move = (id: string, col: Task["col"], before: string | null) => {
+    if (col === "done") {
+      setCompletionTask(tasks.find((task) => task.id === id) ?? null);
+      setEvidence("");
+      setEvidenceFiles([]);
+      setReviewer("");
+      return;
+    }
     setTasks((all) => {
-      const t = all.find((x) => x.id === id)!;
+      const t = all.find((x) => x.id === id);
+      if (!t) return all;
       const rest = all.filter((x) => x.id !== id);
-      const moved: Task = { ...t, col, progress: col === "done" ? undefined : col === "doing" ? t.progress ?? [1, 4] : undefined };
+      const moved: Task = { ...t, col, progress: col === "doing" ? t.progress ?? [1, 4] : undefined };
       const idx = before ? rest.findIndex((x) => x.id === before) : -1;
       if (idx >= 0) rest.splice(idx, 0, moved);
       else rest.push(moved);
       return rest;
     });
-    const t = tasks.find((x) => x.id === id)!;
-    if (t.col !== col) toast(`「${t.title.slice(0, 12)}…」移至${COLS.find((c) => c.k === col)!.label}`);
+    const task = tasks.find((item) => item.id === id);
+    if (task && task.col !== col) toast(`「${task.title.slice(0, 12)}…」移至${COLS.find((item) => item.k === col)!.label}`);
+  };
+  const confirmCompletion = () => {
+    if (!completionTask) return;
+    if (!evidence.trim() && !evidenceFiles.length) {
+      toast("請先填寫改善證明或附上證據檔案");
+      return;
+    }
+    if (!reviewer) {
+      toast("請選擇覆核人員");
+      return;
+    }
+    const reviewedAt = new Date().toISOString();
+    setTasks((all) => all.map((task) => task.id === completionTask.id
+      ? { ...task, col: "done", progress: undefined, evidence: evidence.trim(), evidenceFiles, reviewer, reviewedAt }
+      : task));
+    toast("改善證據已記錄並完成覆核，任務已結案");
+    setCompletionTask(null);
   };
   const end = () => { setDrag(null); setOverCol(null); setOverId(null); };
 
@@ -48,7 +77,23 @@ export default function Kanban() {
     setModal(false); setDraft({ ...draft, title: "" }); toast("已新增任務");
   };
 
-  const renderCard = (t: Task) => (
+  const openTaskRegulation = (task: Task) => {
+    const regulation = REGS.find((item) => item.id === task.regId)
+      ?? REGS.find((item) => item.topic === task.topic && item.articles.some((no) => task.ref.includes(`第 ${no} 條`)))
+      ?? REGS.find((item) => item.topic === task.topic);
+    if (regulation) setRegId(regulation.id);
+    go("diff");
+  };
+
+  const renderCard = (t: Task) => {
+    const dueDate = (() => {
+      const [month, day] = t.due.split("/").map(Number);
+      return new Date(new Date().getFullYear(), (month || 1) - 1, day || 1);
+    })();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const overdue = t.col !== "done" && dueDate < today;
+    return (
     <div key={t.id} draggable onDragStart={(e) => { setDrag(t.id); e.dataTransfer.effectAllowed = "move"; }} onDragEnd={end}
       onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setOverId(t.id); setOverCol(t.col); }}
       onClick={() => setSel(sel === t.id ? null : t.id)}
@@ -56,16 +101,18 @@ export default function Kanban() {
       <div className="flex items-center justify-between"><Badge tone={priTone(t.pri)}>{t.pri === "高優先" ? "高優先" : t.pri}</Badge><div className="flex items-center gap-1 text-faint"><GripVertical size={14} /><button onClick={(e) => { e.stopPropagation(); setTasks((a) => a.filter((x) => x.id !== t.id)); toast("已刪除任務"); }} className="opacity-0 transition hover:text-danger group-hover:opacity-100"><Trash2 size={13} /></button></div></div>
       <div className="mt-2.5 text-[14px] font-bold leading-snug text-navy-900">{t.title}</div>
       <p className="mt-1 text-xs text-sub">{t.desc}</p>
-      <button onClick={(e) => { e.stopPropagation(); go("diff"); }} className="mt-2 text-[11px] font-semibold text-brand hover:underline">{t.topic} · {t.ref} ↗</button>
+      <button onClick={(e) => { e.stopPropagation(); openTaskRegulation(t); }} className="mt-2 text-[11px] font-semibold text-brand hover:underline">{t.topic} · {t.ref} ↗</button>
       {t.progress && (
         <div className="mt-2.5"><div className="h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-brand transition-all" style={{ width: `${(t.progress[0] / t.progress[1]) * 100}%` }} /></div><div className="mt-1 text-[10px] text-faint">{t.progress[0]} / {t.progress[1]} 項檢核已完成</div></div>
       )}
       <div className="mt-3 flex items-center justify-between border-t border-line/70 pt-2.5 text-[11px] text-sub">
         <span className="flex items-center gap-1.5"><span className="grid h-5 w-5 place-items-center rounded-full text-[10px] font-bold text-white" style={{ background: avatarBg[OWNERS.indexOf(t.owner) % 6] }}>{t.owner[0]}</span>{t.owner} · {t.dept}</span>
-        {t.col === "done" ? <span className="flex items-center gap-1 text-ok"><CheckCircle2 size={12} />完成 {t.due}</span> : <span className="flex items-center gap-1"><CalendarDays size={12} />到期 {t.due}</span>}
+        {t.col === "done" ? <span className="flex items-center gap-1 text-ok"><CheckCircle2 size={12} />完成 {t.due}</span> : <span className={cn("flex items-center gap-1", overdue && "font-bold text-danger")}><CalendarDays size={12} />{overdue ? "逾期" : "到期"} {t.due}</span>}
       </div>
+      {t.col === "done" && (t.reviewer || t.evidence || t.evidenceFiles?.length) && <div className="mt-2 rounded-lg bg-ok-soft/70 px-2.5 py-2 text-[10px] leading-relaxed text-ok"><b>覆核 {t.reviewer ?? "—"}</b>{t.reviewedAt && ` · ${new Date(t.reviewedAt).toLocaleDateString("zh-TW")}`}<br />{t.evidence || t.evidenceFiles?.join("、")}</div>}
     </div>
-  );
+    );
+  };
 
   return (
     <>
@@ -140,6 +187,26 @@ export default function Kanban() {
           </div>
           <div className="flex justify-end gap-2 pt-2"><button onClick={() => setModal(false)} className="rounded-xl border border-line px-4 py-2.5 font-semibold">取消</button><PrimaryBtn onClick={add}>建立</PrimaryBtn></div>
         </div>
+      </Modal>
+      <Modal open={Boolean(completionTask)} onClose={() => setCompletionTask(null)} title="提交改善證據與覆核">
+        {completionTask && <div className="space-y-4">
+          <div className="rounded-xl bg-canvas p-3"><div className="text-sm font-bold text-navy-900">{completionTask.title}</div><p className="mt-1 text-xs text-sub">{completionTask.topic} · {completionTask.ref} · 負責 {completionTask.owner}（{completionTask.dept}）</p></div>
+          <label className="block text-xs font-semibold text-sub">改善證明／覆核備註
+            <textarea value={evidence} onChange={(event) => setEvidence(event.target.value)} rows={3} placeholder="記錄已完成的改善內容、檢核結果或證據位置" className="mt-1.5 w-full rounded-xl border border-line px-3 py-2.5 text-sm font-normal text-ink outline-none focus:border-brand focus:ring-4 focus:ring-brand/10" />
+          </label>
+          <label className="block text-xs font-semibold text-sub">附件證據（示範環境僅記錄檔名）
+            <input type="file" multiple onChange={(event) => setEvidenceFiles(Array.from(event.target.files ?? []).map((file) => file.name))} className="mt-1.5 block w-full rounded-xl border border-line bg-white p-2 text-xs text-sub file:mr-3 file:rounded-lg file:border-0 file:bg-brand-soft file:px-3 file:py-1.5 file:font-semibold file:text-brand" />
+            {evidenceFiles.length > 0 && <span className="mt-1 block text-[10px] text-ok">{evidenceFiles.join("、")}</span>}
+          </label>
+          <label className="block text-xs font-semibold text-sub">覆核人員
+            <select value={reviewer} onChange={(event) => setReviewer(event.target.value)} className="mt-1.5 w-full rounded-xl border border-line bg-white px-3 py-2.5 text-sm font-normal text-ink outline-none focus:border-brand">
+              <option value="">請選擇覆核人員</option>
+              {OWNERS.filter((owner) => owner !== completionTask.owner).map((owner) => <option key={owner} value={owner}>{owner}</option>)}
+            </select>
+          </label>
+          <p className="flex gap-2 rounded-lg bg-warn-soft p-2.5 text-[11px] leading-relaxed text-warn"><AlertTriangle size={14} className="mt-0.5 shrink-0" />只有提交改善證據並指定非承辦人覆核後，任務才會進入已完成。</p>
+          <div className="flex justify-end gap-2"><button onClick={() => setCompletionTask(null)} className="rounded-xl border border-line px-4 py-2 text-sm font-semibold">取消</button><button onClick={confirmCompletion} className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white"><ShieldCheck size={15} />提交覆核並結案</button></div>
+        </div>}
       </Modal>
     </>
   );

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronDown, ChevronLeft, ChevronRight, FileText, Info, X } from "lucide-react";
-import { REGS, type Reg, type Risk } from "./data";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, FileText, Info, Search, X } from "lucide-react";
+import { INDUSTRIES, REGS, regulationsForIndustries, type Reg, type Risk } from "./data";
 import { useStore } from "./store";
 
 export const cn = (...a: (string | false | null | undefined)[]) => a.filter(Boolean).join(" ");
@@ -29,9 +29,9 @@ export const riskTone = (r: string) => (r.startsWith("高") ? "danger" : r.start
 export const RiskBadge = ({ risk }: { risk: Risk | string }) => <Badge tone={riskTone(risk)}>{risk}</Badge>;
 export const statusTone = (s: string) => ({ 待複核: "warn", 分析完成: "brand", 處理中: "violet", 已確認: "ok" } as Record<string, string>)[s] ?? "gray";
 
-export function PageHeader({ title, sub, action }: { title: string; sub: string; action?: ReactNode }) {
+export function PageHeader({ title, sub, action, className }: { title: string; sub: string; action?: ReactNode; className?: string }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-4 animate-rise">
+    <div className={cn("flex flex-wrap items-end justify-between gap-4 animate-rise", className)}>
       <div>
         <h1 className="text-[28px] font-extrabold tracking-tight text-navy-900">{title}</h1>
         <p className="mt-1 text-sm text-sub">{sub}</p>
@@ -41,16 +41,16 @@ export function PageHeader({ title, sub, action }: { title: string; sub: string;
   );
 }
 
-export function PrimaryBtn({ children, onClick, className }: { children: ReactNode; onClick?: () => void; className?: string }) {
+export function PrimaryBtn({ children, onClick, className, disabled }: { children: ReactNode; onClick?: () => void; className?: string; disabled?: boolean }) {
   return (
-    <button onClick={onClick} className={cn("inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(27,89,248,0.28)] transition hover:-translate-y-0.5 hover:bg-[#1148d4] active:translate-y-0", className)}>
+    <button onClick={onClick} disabled={disabled} className={cn("inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(27,89,248,0.28)] transition hover:-translate-y-0.5 hover:bg-[#1148d4] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0", className)}>
       {children}
     </button>
   );
 }
-export function GhostBtn({ children, onClick, className, active }: { children: ReactNode; onClick?: () => void; className?: string; active?: boolean }) {
+export function GhostBtn({ children, onClick, className, active, disabled }: { children: ReactNode; onClick?: () => void; className?: string; active?: boolean; disabled?: boolean }) {
   return (
-    <button onClick={onClick} className={cn("inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-[13px] font-semibold transition hover:border-brand/50 hover:text-brand", active ? "border-brand bg-brand-soft text-brand" : "border-line bg-white text-ink", className)}>
+    <button onClick={onClick} disabled={disabled} className={cn("inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-[13px] font-semibold transition hover:border-brand/50 hover:text-brand disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-line disabled:hover:text-ink", active ? "border-brand bg-brand-soft text-brand" : "border-line bg-white text-ink", className)}>
       {children}
     </button>
   );
@@ -99,9 +99,16 @@ export function Segmented<T extends string>({ value, options, onChange }: { valu
 }
 
 export function RegBar({ extra }: { extra?: ReactNode }) {
-  const { reg, setRegId, toast } = useStore();
+  const { reg, setRegId, toast, industryIds } = useStore();
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [showAll, setShowAll] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const companyRegIds = new Set(regulationsForIndustries(industryIds).map((item) => item.id));
+  const options = REGS
+    .filter((item) => (showAll || query.trim() || companyRegIds.has(item.id))
+      && (!query.trim() || `${item.name} ${item.id} ${item.topic} ${item.industries.join(" ")}`.toLowerCase().includes(query.trim().toLowerCase())))
+    .sort((first, second) => Number(companyRegIds.has(second.id)) - Number(companyRegIds.has(first.id)));
   useEffect(() => {
     const h = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
     document.addEventListener("mousedown", h);
@@ -120,17 +127,26 @@ export function RegBar({ extra }: { extra?: ReactNode }) {
       <div ref={ref} className="relative">
         <GhostBtn onClick={() => setOpen(!open)}>切換法規 <ChevronDown size={14} /></GhostBtn>
         {open && (
-          <div className="absolute right-0 top-full z-40 mt-2 max-h-80 w-[360px] overflow-auto rounded-2xl bg-white p-1.5 shadow-pop ring-1 ring-line animate-pop">
-            {REGS.map((r) => (
-              <button key={r.id} onClick={() => { setRegId(r.id); setOpen(false); toast(`已切換至「${r.name}」`); }} className={cn("flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-brand-soft", r.id === reg.id && "bg-brand-soft")}>
+          <div className="absolute right-0 top-full z-40 mt-2 w-[min(420px,calc(100vw-2rem))] rounded-2xl bg-white p-2 shadow-pop ring-1 ring-line animate-pop">
+            <label className="flex items-center gap-2 rounded-xl border border-line px-3 py-2 text-xs focus-within:border-brand"><Search size={14} className="text-faint" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜尋所有產業法規、主題或編號" className="min-w-0 flex-1 bg-transparent outline-none" /></label>
+            <div className="flex items-center justify-between gap-2 px-2 py-2 text-[10px] text-sub">
+              <span>{industryIds.length ? `優先顯示：${INDUSTRIES.filter((industry) => industryIds.includes(industry.id)).map((industry) => industry.name).join("、")}` : "尚未設定公司產業"}</span>
+              <button type="button" onClick={() => setShowAll(!showAll)} className="shrink-0 font-semibold text-brand">{showAll ? "僅顯示公司產業" : "顯示所有產業"}</button>
+            </div>
+            <div className="max-h-72 overflow-auto">
+            {options.map((r) => (
+              <button key={r.id} onClick={() => { setRegId(r.id); setOpen(false); setQuery(""); toast(`已切換至「${r.name}」`); }} className={cn("flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-brand-soft", r.id === reg.id && "bg-brand-soft")}>
                 <span className={cn("h-8 w-1 rounded-full", r.risk === "高風險" ? "bg-danger" : r.risk === "中風險" ? "bg-warn" : "bg-ok")} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[13px] font-semibold">{r.name}</span>
-                  <span className="text-[11px] text-sub">{r.id} · {r.topic}</span>
+                  <span className="text-[11px] text-sub">{r.id} · {r.topic} · {r.industries.join("、")}</span>
                 </span>
+                {!companyRegIds.has(r.id) && <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] text-sub">其他產業</span>}
                 {r.id === reg.id && <Check size={14} className="text-brand" />}
               </button>
             ))}
+            {!options.length && <div className="px-3 py-6 text-center text-xs text-sub">找不到符合的法規</div>}
+            </div>
           </div>
         )}
       </div>
@@ -239,4 +255,3 @@ export function Bar({ value, color = "#1b59f8", h = "h-2" }: { value: number; co
     </div>
   );
 }
-

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, BookMarked, Check, ChevronRight, FilePlus2, FileUp, History, LayoutGrid, Link2, List, Pencil, Plus, Rocket, Search, Sparkles, Table2, Trash2, UploadCloud, X } from "lucide-react";
 import { useStore } from "../store";
 import { REGS } from "../data";
@@ -14,7 +14,7 @@ let uid = 1000;
 const nid = () => `n${++uid}`;
 
 export default function Rules() {
-  const { rules, setRules, toast, go, askQa } = useStore();
+  const { rules, setRules, toast, go, askQa, ruleFocusId, setRuleFocusId } = useStore();
   const [q, setQ] = useState("");
   const [dept, setDept] = useState("全部部門");
   const [cat, setCat] = useState("全部類別");
@@ -36,6 +36,11 @@ export default function Rules() {
   const upd = (id: string, f: (r: IRule) => IRule) => setRules((rs) => rs.map((r) => (r.id === id ? f(r) : r)));
   const car = useCarousel(Math.max(pending.length, 1), 6000);
   const chart = useCarousel(3, 8000);
+  useEffect(() => {
+    if (!ruleFocusId) return;
+    setOpenId(ruleFocusId);
+    setRuleFocusId("");
+  }, [ruleFocusId, setRuleFocusId]);
 
   const deptData = DEPTS.map((d, i) => ({ label: d.replace("部", ""), value: rules.filter((r) => r.dept === d).length, color: DEPT_COLORS[i] })).filter((d) => d.value);
   const catData = RULE_CATEGORIES.map((c, i) => ({ label: c, value: rules.filter((r) => r.category === c).length, color: DEPT_COLORS[i] }));

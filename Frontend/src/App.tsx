@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Bell, ClipboardCheck, BookMarked, Columns2, GitBranch, Grid3x3, HelpCircle, KanbanSquare, LayoutDashboard, Menu, MessagesSquare, Search, ShieldCheck, ChevronsUpDown, X, ArrowRight, LogOut } from "lucide-react";
+import { Bell, ClipboardCheck, BookMarked, Columns2, GitBranch, Grid3x3, Gavel, HelpCircle, KanbanSquare, LayoutDashboard, Menu, MessagesSquare, Search, ShieldCheck, ChevronsUpDown, X, ArrowRight, LogOut } from "lucide-react";
 import { StoreProvider, authStore, useStore, type PageKey } from "./store";
-import { REGS, TICKER } from "./data";
+import { INDUSTRIES, REGS, regulationsForIndustries, TICKER } from "./data";
 import { Marquee, Toasts, cn, Badge } from "./ui";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -12,6 +12,7 @@ import Kanban from "./pages/Kanban";
 import Review from "./pages/Review";
 import QA from "./pages/QA";
 import Rules from "./pages/Rules";
+import Reports from "./pages/Reports";
 
 const NAV: { k: PageKey; label: string; icon: typeof Bell }[] = [
   { k: "dashboard", label: "法規動態", icon: LayoutDashboard },
@@ -19,6 +20,7 @@ const NAV: { k: PageKey; label: string; icon: typeof Bell }[] = [
   { k: "diff", label: "差異對照", icon: Columns2 },
   { k: "impact", label: "影響分析", icon: GitBranch },
   { k: "heat", label: "風險熱度圖", icon: Grid3x3 },
+  { k: "reports", label: "裁罰與報告", icon: Gavel },
   { k: "kanban", label: "待辦看板", icon: KanbanSquare },
   { k: "review", label: "複核頁", icon: ClipboardCheck },
   { k: "qa", label: "問答", icon: MessagesSquare },
@@ -49,19 +51,16 @@ function Sidebar({ onClose, onLogout }: { onClose?: () => void; onLogout: () => 
       <nav className="relative flex flex-col gap-1">
         {NAV.map(({ k, label, icon: I }) => (
           <button key={k} onClick={() => { go(k); onClose?.(); }} className={cn("group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] font-medium transition", page === k ? "bg-brand text-white shadow-[0_8px_22px_rgba(27,89,248,0.45)]" : "text-white/72 hover:bg-white/10 hover:text-white")}>
-            <I size={17} className={cn("transition group-hover:scale-110")} />
+            <I size={17} className="transition group-hover:scale-110" />
             <span className="flex-1 text-left">{label}</span>
             {k === "kanban" && <span className="rounded-md bg-white/20 px-1.5 text-[11px] font-semibold">{pending}</span>}
           </button>
         ))}
       </nav>
       <div className="relative mt-auto space-y-3">
-        <div className="rounded-xl bg-white/8 p-3 ring-1 ring-white/10">
-          <div className="flex items-center gap-2 text-xs font-semibold"><span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse-ring" />監理知識庫已更新</div>
-        </div>
         <div className="flex items-center gap-2.5">
           <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-brand to-violet text-sm font-bold text-white">林</div>
-          <div className="hidden leading-tight sm:block"><div className="text-[13px] font-semibold">林怡君</div><div className="text-[11px] text-sub">法遵管理員</div></div>
+          <div className="hidden leading-tight sm:block"><div className="text-[13px] font-semibold">林怡君</div><div className="text-[11px] text-white/60">法遵管理員</div></div>
         </div>
         <div className="flex items-center justify-between px-2"><button className="flex items-center gap-2 text-xs text-white/60 hover:text-white"><HelpCircle size={14} />操作指南</button><button onClick={onLogout} className="flex items-center gap-1.5 text-xs text-white/60 hover:text-white"><LogOut size={14} />登出</button></div>
       </div>
@@ -74,7 +73,7 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
   const [bell, setBell] = useState(false);
   const label = NAV.find((n) => n.k === page)!.label;
   return (
-    <header className="relative z-30 flex shrink-0 items-center gap-3 border-b border-line bg-white/85 px-4 py-3 backdrop-blur md:px-8">
+    <header className="app-topbar relative z-30 flex shrink-0 items-center gap-3 border-b border-line bg-white/85 px-4 py-3 backdrop-blur md:px-8">
       <button onClick={onMenu} className="grid h-9 w-9 place-items-center rounded-lg border border-line lg:hidden"><Menu size={18} /></button>
       <div className="hidden text-[13px] text-sub sm:block">監理智慧工作台 <span className="mx-1.5 text-faint">›</span> <b className="text-ink">{label}</b></div>
       <div className="ml-auto flex items-center gap-3">
@@ -101,7 +100,7 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
 }
 
 function SearchPalette() {
-  const { openSearch, setOpenSearch, go, setRegId } = useStore();
+  const { openSearch, setOpenSearch, go, setRegId, industryIds } = useStore();
   const [q, setQ] = useState("");
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -112,7 +111,11 @@ function SearchPalette() {
     return () => window.removeEventListener("keydown", h);
   }, [setOpenSearch]);
   if (!openSearch) return null;
-  const regs = REGS.filter((r) => (r.name + r.id + r.topic).includes(q));
+  const query = q.trim().toLowerCase();
+  const matches = (r: (typeof REGS)[number]) => !query || `${r.name} ${r.id} ${r.topic} ${r.industries.join(" ")}`.toLowerCase().includes(query);
+  const companyRegIds = new Set(regulationsForIndustries(industryIds).map((r) => r.id));
+  const companyRegs = REGS.filter((r) => companyRegIds.has(r.id) && matches(r));
+  const otherRegs = REGS.filter((r) => !companyRegIds.has(r.id) && matches(r));
   const pages = NAV.filter((n) => n.label.includes(q));
   return (
     <div className="fixed inset-0 z-[90] grid place-items-start bg-navy-950/50 p-4 pt-[12vh] backdrop-blur-sm" onMouseDown={() => setOpenSearch(false)}>
@@ -121,9 +124,11 @@ function SearchPalette() {
         <div className="max-h-[50vh] overflow-auto p-2">
           {pages.length > 0 && <div className="px-3 py-1.5 text-[11px] font-semibold text-faint">前往頁面</div>}
           {pages.map((n) => (<button key={n.k} onClick={() => { go(n.k); setOpenSearch(false); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-brand-soft"><n.icon size={16} className="text-brand" />{n.label}<ArrowRight size={14} className="ml-auto text-faint" /></button>))}
-          {regs.length > 0 && <div className="px-3 py-1.5 text-[11px] font-semibold text-faint">法規（選取後切換至差異對照）</div>}
-          {regs.map((r) => (<button key={r.id} onClick={() => { setRegId(r.id); go("diff"); setOpenSearch(false); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-brand-soft"><span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{r.name}</span><span className="text-[11px] text-sub">{r.id} · {r.topic}</span></span><Badge tone={r.risk === "高風險" ? "danger" : r.risk === "中風險" ? "warn" : "ok"}>{r.risk}</Badge></button>))}
-          {!regs.length && !pages.length && <div className="p-8 text-center text-sm text-sub">找不到符合「{q}」的結果</div>}
+          {companyRegs.length > 0 && <div className="px-3 py-1.5 text-[11px] font-semibold text-faint">本公司產業法規 · {INDUSTRIES.filter((industry) => industryIds.includes(industry.id)).map((industry) => industry.name).join("、") || "未設定"}</div>}
+          {companyRegs.map((r) => (<button key={r.id} onClick={() => { setRegId(r.id); go("diff"); setOpenSearch(false); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-brand-soft"><span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{r.name}</span><span className="text-[11px] text-sub">{r.id} · {r.topic}</span></span><Badge tone={r.risk === "高風險" ? "danger" : r.risk === "中風險" ? "warn" : "ok"}>{r.risk}</Badge></button>))}
+          {otherRegs.length > 0 && <div className="px-3 py-1.5 text-[11px] font-semibold text-faint">其他產業法規 · 搜尋所有產業</div>}
+          {otherRegs.map((r) => (<button key={r.id} onClick={() => { setRegId(r.id); go("diff"); setOpenSearch(false); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-brand-soft"><span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{r.name}</span><span className="text-[11px] text-sub">{r.id} · {r.topic} · {r.industries.join("、")}</span></span><Badge tone={r.risk === "高風險" ? "danger" : r.risk === "中風險" ? "warn" : "ok"}>{r.risk}</Badge></button>))}
+          {!companyRegs.length && !otherRegs.length && !pages.length && <div className="p-8 text-center text-sm text-sub">找不到符合「{q}」的結果</div>}
         </div>
       </div>
     </div>
@@ -133,12 +138,12 @@ function SearchPalette() {
 function Ticker() {
   const tone: Record<string, string> = { danger: "bg-danger", brand: "bg-brand", warn: "bg-warn", violet: "bg-violet", teal: "bg-teal", ok: "bg-ok" };
   return (
-    <div className="flex shrink-0 items-center gap-3 border-b border-line bg-navy-900 py-2 text-white">
+    <div className="app-ticker flex shrink-0 items-center gap-3 border-b border-line bg-navy-900 py-2 text-white">
       <div className="ml-4 flex shrink-0 items-center gap-2 text-[11px] font-bold tracking-widest md:ml-8"><span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse-ring" />LIVE</div>
-      <Marquee className="flex-1" >
-        {TICKER.map((t) => (
-          <span key={t.text} className="flex items-center gap-2 whitespace-nowrap text-xs text-white/85">
-            <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold", tone[t.tone])}>{t.tag}</span>{t.text}<span className="ml-4 text-white/25">◆</span>
+      <Marquee className="flex-1">
+        {TICKER.map((item) => (
+          <span key={item.text} className="flex items-center gap-2 whitespace-nowrap text-xs text-white/85">
+            <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold", tone[item.tone])}>{item.tag}</span>{item.text}<span className="ml-4 text-white/25">◆</span>
           </span>
         ))}
       </Marquee>
@@ -149,9 +154,9 @@ function Ticker() {
 function Shell({ onLogout }: { onLogout: () => void }) {
   const { page } = useStore();
   const [drawer, setDrawer] = useState(false);
-  const Page = { dashboard: Dashboard, rules: Rules, diff: Diff, impact: Impact, heat: Heat, kanban: Kanban, review: Review, qa: QA }[page];
+  const Page = { dashboard: Dashboard, rules: Rules, diff: Diff, impact: Impact, heat: Heat, kanban: Kanban, review: Review, qa: QA, reports: Reports }[page];
   return (
-    <div className="flex h-full">
+    <div className="app-shell flex h-full">
       <div className="hidden shrink-0 lg:block"><Sidebar onLogout={onLogout} /></div>
       {drawer && (
         <div className="fixed inset-0 z-[70] flex lg:hidden"><div className="animate-pop"><Sidebar onClose={() => setDrawer(false)} onLogout={onLogout} /></div><div className="flex-1 bg-navy-950/50" onClick={() => setDrawer(false)} /></div>
@@ -159,7 +164,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onMenu={() => setDrawer(true)} />
         <Ticker />
-        <main id="main-scroll" className="flex-1 overflow-auto">
+        <main id="main-scroll" className="app-main flex-1 overflow-auto">
           <div key={page} className="mx-auto max-w-[1320px] space-y-5 px-4 py-7 md:px-8"><Page /></div>
         </main>
       </div>

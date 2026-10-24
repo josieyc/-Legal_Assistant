@@ -49,10 +49,43 @@ export default function Heat() {
   const reasons = reasonsFor(DEPTS[si], TOPICS[sj], score);
 
   const toggle = (k: string) => setLevels(levels.includes(k) ? levels.filter((x) => x !== k) : [...levels, k]);
+  const exportReport = () => {
+    const createdAt = new Date();
+    const generatedAt = createdAt.toLocaleString("zh-TW", { hour12: false });
+    const rowsToExport = rows.flatMap(({ d, i }) => m[i]
+      .map((value, j) => ({ department: d, topic: TOPICS[j], score: value, level: scoreTone(value).label, topicIndex: j }))
+      .filter((item) => levels.includes(item.level)));
+
+    if (!rowsToExport.length) {
+      toast("目前篩選條件沒有可匯出的風險資料。");
+      return;
+    }
+
+    const escapeCsv = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
+    const csvRows = [
+      ["產製時間", "期間", "風險來源", "部門", "主題", "風險分數", "風險等級", "關聯法規"],
+      ...rowsToExport.map((item) => {
+        const relatedLaws = REGS.filter((regulation) => regulation.topic === item.topic)
+          .map((regulation) => `${regulation.name}（${regulation.article}）`)
+          .join("、") || "無";
+        return [generatedAt, period, source, item.department, item.topic, item.score, item.level, relatedLaws];
+      }),
+    ];
+    const csv = `\uFEFF${csvRows.map((row) => row.map(escapeCsv).join(",")).join("\r\n")}`;
+    const blobUrl = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = `風險熱度報表_${createdAt.toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    toast(`已匯出 ${rowsToExport.length} 筆風險資料 CSV。`);
+  };
 
   return (
     <>
-      <PageHeader title="風險熱度圖" sub="用部門 × 主題矩陣掌握風險集中處，讓管理資源優先投入關鍵影響。" action={<PrimaryBtn onClick={() => toast("已匯出風險報表（示範）")}><Download size={16} />匯出風險報表</PrimaryBtn>} />
+      <PageHeader title="風險熱度圖" sub="用部門 × 主題矩陣掌握風險集中處，讓管理資源優先投入關鍵影響。" action={<PrimaryBtn onClick={exportReport}><Download size={16} />匯出風險報表</PrimaryBtn>} />
       <div className="flex flex-wrap items-center gap-3">
         <Select label="期間" value={period} options={HEAT_PERIODS} onChange={setPeriod} />
         <Select label="部門" value={dept} options={["全部", ...DEPTS]} onChange={setDept} />

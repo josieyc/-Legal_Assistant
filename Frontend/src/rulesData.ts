@@ -74,6 +74,18 @@ export const RULES_SEED: IRule[] = [
     linked: ["REG-2026-007"],
     history: [{ v: "v1.0", date: "2026/10/10", by: "張世文", note: "草稿建立" }],
   },
+  {
+    id: "r9", code: "TPM-004", name: "第三方資訊服務安全管理辦法", dept: "資訊部", category: "管理政策", version: "v1.0", status: "生效中", updated: "2026/08/12", owner: "李承翰", health: 61, dirty: 0,
+    clauses: [cl("第 9 點", "資訊服務供應商應依契約接受定期安全檢視。", "第 21 條"), cl("第 10 點", "供應商缺失應列管並追蹤改善。")],
+    linked: ["REG-2026-012"],
+    history: [{ v: "v1.0", date: "2026/08/12", by: "李承翰", note: "首次發布" }],
+  },
+  {
+    id: "r10", code: "XBP-002", name: "跨境支付交易監控作業規範", dept: "營運部", category: "作業程序", version: "v1.2", status: "生效中", updated: "2026/05/20", owner: "王志明", health: 57, dirty: 0,
+    clauses: [cl("第 5 點", "達申報門檻之跨境交易應完成身分確認及申報。", "第 30 條"), cl("第 6 點", "交易紀錄應保存並定期檢視異常情形。", "第 31 條")],
+    linked: ["REG-2026-009"],
+    history: [{ v: "v1.2", date: "2026/05/20", by: "王志明", note: "更新跨境交易檢核流程" }],
+  },
 ];
 
 export const bumpVersion = (v: string) => {
