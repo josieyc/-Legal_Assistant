@@ -67,6 +67,30 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 ::selection { background: #c9d9ff; }
+.compliance-page-header {
+  border-bottom: 1px solid #d9dfe5;
+  padding-bottom: 1rem;
+}
+.compliance-page-header h1 {
+  font-size: 1.375rem;
+  font-weight: 700;
+}
+
+@media print {
+  @page { margin: 16mm; }
+  html, body, #root { height: auto !important; min-height: 0 !important; }
+  body.printing-management-report { background: #fff !important; }
+  body.printing-management-report .app-shell { display: block !important; height: auto !important; }
+  body.printing-management-report .app-shell > div:last-child { display: block !important; }
+  body.printing-management-report aside,
+  body.printing-management-report .app-topbar,
+  body.printing-management-report .app-ticker,
+  body.printing-management-report .no-print { display: none !important; }
+  body.printing-management-report .app-main { display: block !important; height: auto !important; overflow: visible !important; }
+  body.printing-management-report .management-report-page { max-width: none !important; padding: 0 !important; }
+  body.printing-management-report .print-break-inside { break-inside: avoid; }
+  body.printing-management-report .shadow-tile { box-shadow: none !important; }
+}
 
 * { scrollbar-width: none; }
 *::-webkit-scrollbar { display: none; }

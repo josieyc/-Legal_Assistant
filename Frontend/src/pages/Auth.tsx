@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ArrowRight, Check, FileUp, FileText, Lock, Mail, ShieldCheck, Sparkles, Trash2, UploadCloud, User, Building2 } from "lucide-react";
-import { INDUSTRIES } from "../data";
+import { INDUSTRIES, regulationsForIndustries } from "../data";
 import { ArrowBtns, CarouselDots, Marquee, cn, useCarousel } from "../ui";
 import { useStore } from "../store";
 
@@ -13,10 +13,10 @@ const SLIDES = [
 const FILES = [["客戶審查作業辦法.pdf", "1.2 MB"], ["洗錢防制紀錄保存政策.docx", "380 KB"], ["委外服務監督作業程序.pdf", "910 KB"]];
 
 export default function Auth({ onEnter }: { onEnter: () => void }) {
-  const { toast } = useStore();
+  const { toast, industryIds, setIndustryIds, setRegId } = useStore();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [step, setStep] = useState(0);
-  const [picked, setPicked] = useState<string[]>(["bank"]);
+  const [picked, setPicked] = useState<string[]>(industryIds);
   const [files, setFiles] = useState<string[][]>([]);
   const [drag, setDrag] = useState(false);
   const car = useCarousel(SLIDES.length, 4500);
@@ -94,7 +94,7 @@ export default function Auth({ onEnter }: { onEnter: () => void }) {
               )}
               {step === 1 && (
                 <>
-                  <div><h1 className="text-3xl font-extrabold text-navy-900">選擇產業</h1><p className="mt-1.5 text-sm text-sub">可複選，我們會依此推送相關法規。</p></div>
+                  <div><h1 className="text-3xl font-extrabold text-navy-900">選擇產業</h1><p className="mt-1.5 text-sm text-sub">可複選；平台會優先顯示本公司產業法規，也可搜尋其他產業規範。</p></div>
                   <div className="grid grid-cols-2 gap-3">
                     {INDUSTRIES.map((o) => {
                       const on = picked.includes(o.id);
@@ -133,7 +133,20 @@ export default function Auth({ onEnter }: { onEnter: () => void }) {
               )}
               <div className="flex gap-3 pt-2">
                 {step > 0 && <button onClick={() => setStep(step - 1)} className="rounded-xl border border-line px-5 py-3 text-sm font-semibold hover:border-brand">上一步</button>}
-                <button onClick={() => (step < 2 ? setStep(step + 1) : onEnter())} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-bold text-white shadow-[0_10px_24px_rgba(27,89,248,0.3)] transition hover:-translate-y-0.5">
+                <button onClick={() => {
+                  if (step < 2) {
+                    if (step === 1 && !picked.length) {
+                      toast("請至少選擇一項公司所屬產業");
+                      return;
+                    }
+                    setStep(step + 1);
+                    return;
+                  }
+                  setIndustryIds(picked);
+                  const firstIndustryRegulation = regulationsForIndustries(picked)[0];
+                  if (firstIndustryRegulation) setRegId(firstIndustryRegulation.id);
+                  onEnter();
+                }} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-bold text-white shadow-[0_10px_24px_rgba(27,89,248,0.3)] transition hover:-translate-y-0.5">
                   {step < 2 ? "下一步" : files.length ? "完成並進入平台" : "略過並進入平台"} {step < 2 ? <ArrowRight size={16} /> : <FileUp size={16} />}
                 </button>
               </div>

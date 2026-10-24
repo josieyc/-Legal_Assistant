@@ -1,138 +1,261 @@
-import { useMemo, useState } from "react";
-import { Building2, CheckCircle2, ClipboardList, Download, FileStack, Plus, Sparkles, Target } from "lucide-react";
-import { DEPTS, IMPACT_CONF, MEASURES, RULES } from "../data";
-import { ArrowBtns, Badge, Bar, Card, CarouselDots, CountUp, GhostBtn, PageHeader, PrimaryBtn, RegBar, Segmented, cn, useCarousel } from "../ui";
+import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, ArrowRight, Building2, Check, ChevronDown, FileCheck2, FileStack, Lightbulb, Sparkles, Target } from "lucide-react";
+import { DEPTS, DIFF_SETS } from "../data";
+import { Badge, Card, CountUp, GhostBtn, PageHeader, RegBar, Segmented, cn } from "../ui";
 import { useStore } from "../store";
 
-function Gauge({ v }: { v: number }) {
-  const r = 52, c = 2 * Math.PI * r;
-  return (
-    <div className="relative grid h-36 w-36 place-items-center">
-      <svg viewBox="0 0 120 120" className="-rotate-90">
-        <circle cx="60" cy="60" r={r} fill="none" stroke="#eef1f8" strokeWidth="10" />
-        <circle cx="60" cy="60" r={r} fill="none" stroke="url(#g)" strokeWidth="10" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - v / 100)} style={{ transition: "stroke-dashoffset 1s ease" }} />
-        <defs><linearGradient id="g" x1="0" x2="1"><stop stopColor="#7c5cfc" /><stop offset="1" stopColor="#1b59f8" /></linearGradient></defs>
-      </svg>
-      <div className="absolute text-center"><div className="num text-4xl font-extrabold text-navy-900"><CountUp to={v} suffix="%" /></div><div className="text-[11px] text-sub">AI 信心</div></div>
-    </div>
-  );
-}
-
-const lvColor = { 高影響: "#e5484d", 中影響: "#e8890c", 低影響: "#0f9d6b" };
-
 export default function Impact() {
-  const { reg, go, toast, setTasks } = useStore();
+  const { reg, rules: allRules, tasks, go, toast, setTasks, sendToReview } = useStore();
   const [lv, setLv] = useState<"全部" | "高影響" | "中影響" | "低影響">("全部");
-  const [dept, setDept] = useState("全部");
-  const [open, setOpen] = useState<string | null>(RULES[0].code);
-  const [added, setAdded] = useState<string[]>([]);
-  const c = useCarousel(MEASURES.length, 6000);
+  const [aiResult, setAiResult] = useState<{ mode: string; text: string } | null>(null);
+  const diff = DIFF_SETS[reg.id];
+  const articleNos = reg.articles;
+  const articleNumbers = (reference: string) => (reference.match(/\d+/g) ?? []).map(Number);
+  const linkedRules = allRules.filter((rule) => rule.linked.includes(reg.id));
+  const impacts = linkedRules.map((rule) => {
+    const matchingClauses = rule.clauses.filter((clause) => clause.ref && articleNumbers(clause.ref).some((n) => articleNos.includes(n)));
+    const comparisons = diff.articles
+      .filter((article) => articleNos.includes(article.no))
+      .map((article) => ({
+        no: article.no,
+        title: article.title,
+        requirement: article.newSeg.flat().map((segment) => segment.t).join(""),
+        currentClauses: rule.clauses.filter((clause) => clause.ref && articleNumbers(clause.ref).includes(article.no)),
+      }))
+      .filter((comparison) => comparison.currentClauses.length > 0);
+    const pendingForRegulation = rule.pending?.reg === reg.id;
+    const impactLevel = rule.status === "修訂中" || (pendingForRegulation && rule.health < 65)
+      ? "高影響"
+      : pendingForRegulation || comparisons.length > 0
+        ? "中影響"
+        : "低影響";
+    const comparisonReason = comparisons.map((comparison) => {
+      const current = comparison.currentClauses.map((clause) => `${clause.no}「${clause.text}」`).join("、");
+      return `第 ${comparison.no} 條新規要求「${comparison.requirement}」，但${rule.name}現行${current}；兩者要求有落差，因此需檢視並修訂該內規。`;
+    }).join(" ");
+    return {
+      name: rule.name,
+      code: rule.code,
+      clauses: matchingClauses.length ? matchingClauses.map((clause) => clause.no).join("、") : rule.clauses.map((clause) => clause.no).join("、"),
+      reason: [comparisonReason, rule.pending?.reg === reg.id ? `分析備註：${rule.pending.reason}` : ""].filter(Boolean).join(" ") || (rule.pending?.reg === reg.id ? rule.pending.reason : "此內規已關聯本次法規異動，請確認適用範圍及修訂需求。"),
+      basis: matchingClauses.map((clause) => clause.ref).filter((ref): ref is string => Boolean(ref)).join("、") || reg.article,
+      dept: rule.dept,
+      level: impactLevel as "高影響" | "中影響" | "低影響",
+      comparisons,
+      rule,
+    };
+  });
+  const measures = diff.insights.map((insight) => {
+    const insightNos = articleNumbers(insight.ref);
+    const relatedRule = impacts.find((item) => insightNos.some((no) => articleNumbers(item.basis).includes(no)));
+    const existingTask = tasks.find((task) => (task.regId === reg.id || (!task.regId && task.topic === reg.topic)) && task.ref === insight.ref && task.title === insight.t);
+    return {
+      t: insight.t,
+      d: insight.d,
+      owner: relatedRule?.rule.dept ?? reg.depts.join("、"),
+      dept: relatedRule?.rule.dept ?? reg.depts[0] ?? "法遵部",
+      ref: insight.ref,
+      pri: reg.risk === "高風險" ? "高" as const : reg.risk === "中風險" ? "中" as const : "低" as const,
+      status: existingTask ? (existingTask.col === "done" ? "已完成" : "已建立任務") : "待確認",
+      existingTask,
+    };
+  });
+  const [open, setOpen] = useState<string | null>(impacts[0]?.code ?? null);
+  useEffect(() => {
+    setOpen(impacts[0]?.code ?? null);
+    setLv("全部");
+  }, [reg.id]);
+  useEffect(() => {
+    setAiResult(null);
+  }, [reg.id]);
 
-  const rules = useMemo(() => RULES.filter((r) => (lv === "全部" || r.level === lv) && (dept === "全部" || r.dept.includes(dept))), [lv, dept]);
-  const conf = Math.round(IMPACT_CONF.reduce((n, x) => n + x.v, 0) / IMPACT_CONF.length) + 2;
-  const deptCount = DEPTS.slice(0, 4).map((d, i) => ({ d, n: [3, 2, 2, 2][i], color: ["#1b59f8", "#7c5cfc", "#0e9fb3", "#e8890c"][i] }));
+  const filteredImpacts = useMemo(() => impacts.filter((item) => lv === "全部" || item.level === lv), [allRules, reg.id, lv]);
+  const deptCount = DEPTS.map((name) => ({
+    d: name,
+    n: impacts.filter((item) => item.dept.includes(name)).length,
+  })).filter((item) => item.n > 0);
+  const relatedTasks = tasks.filter((task) => (task.regId === reg.id || (!task.regId && task.topic === reg.topic)) && articleNumbers(task.ref).some((no) => articleNos.includes(no)));
 
-  const createTask = (t: (typeof MEASURES)[number]) => {
-    if (added.includes(t.t)) return;
-    setAdded([...added, t.t]);
-    setTasks((x) => [...x, { id: "T-" + (200 + x.length), title: t.t, desc: t.d, pri: t.pri === "高" ? "高優先" : t.pri === "中" ? "中優先" : "低優先", topic: reg.topic, ref: "第 8 條", owner: "林怡君", dept: t.owner, due: t.due.slice(5).replace("/", "/"), col: "todo" }]);
+  const createTask = (measure: (typeof measures)[number]) => {
+    if (measure.existingTask) return;
+    setTasks((current) => [...current, {
+      id: `T-${Date.now()}`,
+      title: measure.t,
+      desc: measure.d,
+      pri: measure.pri === "高" ? "高優先" : measure.pri === "中" ? "中優先" : "低優先",
+      topic: reg.topic,
+      regId: reg.id,
+      ref: measure.ref,
+      owner: measure.owner,
+      dept: measure.dept,
+      due: reg.effective.slice(5).replace("/", "/"),
+      col: "todo",
+    }]);
     toast("已建立任務，可至待辦看板查看");
   };
 
+  const runLocalImpactAnalysis = () => {
+    setAiResult({
+      mode: "本機法規影響分析（非生成式 AI）",
+      text: [
+        `依據 ${reg.name} 的示範條文與目前內規關聯，建議優先由 ${[...new Set(impacts.map((item) => item.dept))].join("、") || reg.depts.join("、")} 檢視影響。`,
+        ...diff.insights.map((insight) => `${insight.ref}｜${insight.t}：${insight.d}`),
+        ...impacts.filter((item) => item.level === "高影響" || item.level === "中影響").map((item) => `${item.name}（${item.dept}）：${item.reason}`),
+        `建議措施：${measures.slice(0, 3).map((measure) => measure.d).join("；")}`,
+      ].join("\n"),
+    });
+  };
+
   const stats = [
-    { l: "受影響內規", n: rules.length, p: 2, c: "#1b59f8", icon: FileStack, s: `${rules.filter((r) => r.level === "高影響").length} 件需優先修訂` },
-    { l: "受影響部門", n: 4, p: 2, c: "#7c5cfc", icon: Building2, s: "營運、法遵、資訊、風控" },
-    { l: "建議因應措施", n: MEASURES.length, p: 2, c: "#e8890c", icon: Target, s: "已建立 " + added.length + " 件任務 · 其餘待確認" },
+    { l: "關聯內規", n: impacts.length, c: "#1b59f8", icon: FileStack, s: `${impacts.filter((item) => item.level === "高影響").length} 件優先檢視` },
+    { l: "涉及部門", n: deptCount.length, c: "#7c5cfc", icon: Building2, s: deptCount.map((item) => item.d).join("、") || "尚無關聯部門" },
+    { l: "待辦措施", n: measures.length, c: "#e8890c", icon: Target, s: `${relatedTasks.length} 件已同步至待辦` },
   ];
 
   return (
     <>
-      <PageHeader title="影響分析" sub="擷取法規異動與內部制度的差距，找出責任部門並形成可執行的因應措施。" action={<PrimaryBtn onClick={() => { MEASURES.forEach(createTask); }}><Plus size={16} />建立因應任務</PrimaryBtn>} />
+      <PageHeader title="影響分析" sub="從法規新要求一路追到內規落差與建議行動，讓每一項影響都有明確依據。" />
       <RegBar />
 
-      <Card className="grid gap-6 p-6 lg:grid-cols-[1fr_1fr_1fr_1.15fr]">
-        {stats.map((s) => (
-          <div key={s.l} className="flex items-start gap-4 lg:border-r lg:border-line lg:pr-6">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-white" style={{ background: s.c }}><s.icon size={20} /></span>
-            <div><div className="text-xs font-semibold text-sub">{s.l}</div><div className="num text-5xl font-extrabold leading-tight" style={{ color: s.c }}><CountUp to={s.n} pad={2} /></div><div className="text-xs text-sub">{s.s}</div></div>
+      <Card className="overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line bg-gradient-to-r from-brand-soft/70 via-white to-white px-6 py-5">
+          <div className="flex items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-brand shadow-sm ring-1 ring-brand/10"><Sparkles size={18} /></span>
+            <div><div className="text-sm font-bold text-navy-900">本次分析摘要</div><p className="mt-1 text-[13px] text-sub">{reg.name} · {reg.article} · 生效日 {reg.effective}</p></div>
           </div>
-        ))}
-        <div className="flex items-center gap-4">
-          <Gauge v={conf} />
-          <div className="flex-1 space-y-2">
-            {IMPACT_CONF.map((x) => <div key={x.label}><div className="mb-1 flex justify-between text-[11px] text-sub"><span>{x.label}</span><b className="num text-ink">{x.v}%</b></div><Bar value={x.v} h="h-1.5" color="linear-gradient(90deg,#7c5cfc,#1b59f8)" /></div>)}
-          </div>
+          <Badge tone={reg.risk === "高風險" ? "danger" : reg.risk === "中風險" ? "warn" : "ok"}>{reg.risk} · {reg.topic}</Badge>
+        </div>
+        <div className="grid gap-5 p-6 sm:grid-cols-3">
+          {stats.map((stat) => (
+            <div key={stat.l} className="flex items-center gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-white" style={{ background: stat.c }}><stat.icon size={18} /></span>
+              <div><div className="text-xs font-semibold text-sub">{stat.l}</div><div className="mt-0.5 flex items-baseline gap-2"><span className="num text-3xl font-extrabold leading-tight" style={{ color: stat.c }}><CountUp to={stat.n} /></span><span className="text-[11px] text-sub">{stat.s}</span></div></div>
+            </div>
+          ))}
         </div>
       </Card>
 
-      <Card className="p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div><h2 className="text-lg font-extrabold text-navy-900">受影響內規清單</h2><p className="mt-1 text-xs text-sub">以條文依據逐項對照，點選內規可展開完整比對</p></div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Segmented value={lv} onChange={setLv} options={(["全部", "高影響", "中影響", "低影響"] as const).map((v) => ({ v, label: v }))} />
-            <select value={dept} onChange={(e) => setDept(e.target.value)} className="rounded-xl border border-line bg-white px-3 py-2 text-[13px] outline-none focus:border-brand"><option value="全部">部門：全部</option>{DEPTS.map((d) => <option key={d}>{d}</option>)}</select>
-            <GhostBtn onClick={() => toast("已匯出影響分析（示範）")}><Download size={14} />匯出分析</GhostBtn>
+      <Card className="group overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-4 bg-gradient-to-r from-navy-900 via-navy-800 to-navy-700 px-5 py-4 text-white md:px-6">
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-white/10 text-cyan-200"><Sparkles size={19} /></span>
+            <div>
+              <div className="flex flex-wrap items-center gap-2"><h2 className="text-sm font-bold">法規 × 內規影響分析</h2><Badge tone="warn">本機規則示範</Badge></div>
+              <p className="mt-1 text-xs text-white/65">依據 data.ts 法規重點與 rulesData.ts 內規關聯，比對部門及可能影響。</p>
+            </div>
           </div>
+          <button type="button" onClick={runLocalImpactAnalysis} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-navy-900 transition-all duration-200 hover:-translate-y-0.5 hover:bg-brand-soft hover:shadow-lg">
+            <Sparkles size={15} />
+            {aiResult ? "重新分析" : "開始分析"}
+          </button>
         </div>
-        <div className="mt-4 space-y-2.5">
-          {rules.map((r) => {
-            const on = open === r.code;
-            return (
-              <div key={r.code} className={cn("overflow-hidden rounded-2xl border transition", on ? "border-brand/40 bg-brand-soft/30" : "border-line")}>
-                <button onClick={() => setOpen(on ? null : r.code)} className="flex w-full items-center gap-4 p-4 text-left">
-                  <span className="h-12 w-1.5 shrink-0 rounded-full" style={{ background: lvColor[r.level] }} />
-                  <span className="min-w-0 flex-1"><span className="block text-[14px] font-bold text-brand">{r.name} ↗</span><span className="text-xs text-sub">{r.code} · {r.clauses}</span></span>
-                  <span className="hidden w-52 text-xs text-sub md:block">{r.dept}</span>
-                  <span className="hidden w-20 text-xs font-semibold text-brand md:block">{r.basis} ↗</span>
-                  <Badge tone={r.level === "高影響" ? "danger" : r.level === "中影響" ? "warn" : "ok"}>{r.level}</Badge>
-                </button>
-                {on && (
-                  <div className="grid gap-4 border-t border-line/70 p-4 pt-4 text-[13px] animate-rise md:grid-cols-[1fr_auto]">
-                    <div><div className="text-[11px] font-semibold text-faint">影響理由</div><p className="mt-1 leading-relaxed">{r.reason}</p></div>
-                    <div className="flex gap-2"><GhostBtn onClick={() => go("diff")}>查看條文</GhostBtn><GhostBtn onClick={() => go("review")}>送複核</GhostBtn></div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {!rules.length && <div className="rounded-2xl border border-dashed border-line py-10 text-center text-sm text-sub">沒有符合篩選的內規</div>}
-        </div>
+        {aiResult && (
+          <div aria-live="polite" className="animate-rise border-t border-line p-5 md:p-6">
+            <div>
+              <div className="mb-3 flex flex-wrap items-center gap-2"><Badge tone="warn">{aiResult.mode}</Badge><span className="text-[11px] text-faint">{reg.name} · {reg.effective} 生效</span></div>
+              <p className="whitespace-pre-wrap text-[13px] leading-7 text-sub">{aiResult.text}</p>
+              <p className="mt-3 border-t border-line pt-3 text-[11px] leading-relaxed text-faint">分析依據為平台本機示範資料，非生成式 AI 或正式法規意見；採用前須由法遵人員核對原文與適用範圍。</p>
+            </div>
+          </div>
+        )}
+        {!aiResult && (
+          <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-[11px] text-sub md:px-6">
+            <span>分析來源：{diff.articles.length} 條修訂、{impacts.length} 部關聯內規、{deptCount.length} 個受影響部門</span>
+            <span>資料僅在前端讀取，不呼叫 Backend</span>
+          </div>
+        )}
       </Card>
 
-      <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
-        <Card className="p-6" onMouseEnter={() => c.setPaused(true)} onMouseLeave={() => c.setPaused(false)}>
-          <div className="flex items-start justify-between">
-            <div><h3 className="text-lg font-extrabold text-navy-900">改善建議與因應措施</h3><p className="mt-1 text-xs text-sub">AI 建議方案，請權責部門確認可行性</p></div>
-            <Badge tone="brand"><Sparkles size={11} />{MEASURES.length} 項優先措施</Badge>
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <Card className="overflow-hidden">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-5">
+            <div><h2 className="text-lg font-extrabold text-navy-900">內規影響與差異依據</h2><p className="mt-1 text-xs text-sub">逐項呈現法規要求、現行內規與影響原因</p></div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Segmented value={lv} onChange={setLv} options={(["全部", "高影響", "中影響", "低影響"] as const).map((value) => ({ v: value, label: value }))} />
+            </div>
           </div>
-          <div className="mt-5 overflow-hidden">
-            <div className="flex transition-transform duration-500 ease-out" style={{ transform: `translateX(-${c.i * 100}%)` }}>
-              {MEASURES.map((m, i) => (
-                <div key={m.t} className="w-full shrink-0 pr-1">
-                  <div className="rounded-2xl p-5" style={{ background: ["#eef3ff", "#f0ecff", "#e2f6f9", "#fff4e0"][i] }}>
-                    <div className="flex items-center justify-between"><span className="num font-mono text-xs font-semibold text-sub">措施 0{i + 1}</span><Badge tone={m.pri === "高" ? "danger" : m.pri === "中" ? "warn" : "ok"}>{m.pri}優先</Badge></div>
-                    <div className="mt-2 flex items-center gap-2 text-lg font-bold text-navy-900"><CheckCircle2 size={20} className="text-brand" />{m.t}</div>
-                    <p className="mt-2 text-[13px] leading-relaxed text-sub">{m.d}</p>
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-sub"><span>{m.owner} · 建議期限 {m.due}（示範）</span>
-                      <button onClick={() => createTask(m)} disabled={added.includes(m.t)} className={cn("inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold transition", added.includes(m.t) ? "bg-ok-soft text-ok" : "bg-brand text-white hover:-translate-y-0.5")}>{added.includes(m.t) ? "已建立任務" : "建立任務 →"}</button>
+          <div className="space-y-3 p-5">
+            {filteredImpacts.map((item) => {
+              const isOpen = open === item.code;
+              return (
+                <section key={item.code} className={cn("overflow-hidden rounded-2xl border transition-colors", isOpen ? "border-brand/40 shadow-sm" : "border-line")}>
+                  <button aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : item.code)} className="flex w-full items-center gap-3 p-4 text-left hover:bg-slate-50">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand"><FileCheck2 size={18} /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-2 text-sm font-bold text-navy-900">{item.name}<Badge tone={item.level === "高影響" ? "danger" : item.level === "中影響" ? "warn" : "ok"}>{item.level}</Badge></span>
+                      <span className="mt-1 block text-xs text-sub">{item.code} · 對應 {item.clauses} · {item.dept}</span>
+                    </span>
+                    <ChevronDown size={17} className={cn("shrink-0 text-faint transition-transform", isOpen && "rotate-180")} />
+                  </button>
+                  {isOpen && (
+                    <div className="border-t border-line bg-slate-50/60 p-4 sm:p-5">
+                      <div className="mb-4 flex items-start gap-2 rounded-xl border border-warn/20 bg-warn-soft/60 p-3.5">
+                        <Lightbulb size={16} className="mt-0.5 shrink-0 text-warn" />
+                        <div><div className="text-xs font-bold text-navy-900">為什麼會影響？</div><p className="mt-1 text-[13px] leading-relaxed text-sub">{item.reason}</p></div>
+                      </div>
+                      {item.comparisons.length ? (
+                        <div className="space-y-3">
+                          {item.comparisons.map((comparison) => (
+                            <div key={comparison.no} className="rounded-xl border border-line bg-white p-4">
+                              <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div className="text-[13px] font-bold text-navy-900">第 {comparison.no} 條 · {comparison.title}</div><Badge tone="brand">法規差異依據</Badge></div>
+                              <div className="grid gap-3 md:grid-cols-[1fr_auto_1fr] md:items-stretch">
+                                <div className="rounded-lg bg-brand-soft/70 p-3.5">
+                                  <div className="mb-1.5 text-[11px] font-bold text-brand">新法規要求</div>
+                                  <p className="text-[13px] leading-relaxed text-ink">{comparison.requirement}</p>
+                                </div>
+                                <div className="hidden items-center justify-center text-faint md:flex"><ArrowRight size={17} /></div>
+                                <div className="rounded-lg bg-slate-100 p-3.5">
+                                  <div className="mb-1.5 text-[11px] font-bold text-sub">現行內規</div>
+                                  {comparison.currentClauses.map((clause) => <p key={clause.id} className="text-[13px] leading-relaxed text-ink">{clause.no}：{clause.text}</p>)}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex gap-2 rounded-xl border border-warn/20 bg-white p-3.5 text-[13px] leading-relaxed text-sub"><AlertTriangle size={16} className="mt-0.5 shrink-0 text-warn" />雖已建立法規與內規關聯，但尚未標註對應條號。請先確認實際適用的內規條文，再判斷修訂範圍。</div>
+                      )}
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                        <span className="text-xs text-sub">責任部門：<b className="text-ink">{item.dept}</b> · 內規版本 {item.rule.version}</span>
+                        <div className="flex gap-2">
+                          <GhostBtn onClick={() => go("diff")}>檢視完整條文</GhostBtn>
+                          <GhostBtn onClick={() => {
+                            const articleNo = item.comparisons[0]?.no ?? articleNos[0];
+                            const insight = diff.insights.find((entry) => articleNumbers(entry.ref).includes(articleNo)) ?? diff.insights[0];
+                            sendToReview({ regId: reg.id, articleNo, insight });
+                            toast(`已將「${item.name}」第 ${articleNo} 條送交複核`);
+                          }}>送交複核<ArrowRight size={13} /></GhostBtn>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              );
+            })}
+            {!filteredImpacts.length && <div className="rounded-2xl border border-dashed border-line py-10 text-center text-sm text-sub">此法規目前沒有符合條件的關聯內規。</div>}
+          </div>
+        </Card>
+
+        <div className="space-y-5">
+          <Card className="p-5">
+            <div className="flex items-start justify-between gap-3"><div><h3 className="font-bold text-navy-900">建議因應措施</h3><p className="mt-0.5 text-xs text-sub">依據本法規 AI 重點解析</p></div><Badge tone="brand">{measures.length} 項</Badge></div>
+            <div className="mt-4 space-y-3">
+              {measures.map((measure) => (
+                <div key={measure.t} className="rounded-xl border border-line p-3.5">
+                  <div className="flex items-start gap-2.5">
+                    <span className={cn("mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full", measure.existingTask ? "bg-ok-soft text-ok" : "bg-brand-soft text-brand")}>{measure.existingTask ? <Check size={12} /> : <Target size={12} />}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13px] font-bold leading-snug text-navy-900">{measure.t}</div>
+                      <p className="mt-1 text-xs leading-relaxed text-sub">{measure.d}</p>
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2"><span className="text-[11px] text-faint">{measure.ref} · {measure.dept}</span><button onClick={() => createTask(measure)} disabled={Boolean(measure.existingTask)} className={cn("rounded-lg px-2.5 py-1 text-[11px] font-semibold", measure.existingTask ? "cursor-default bg-ok-soft text-ok" : "bg-brand text-white hover:bg-[#1148d4]")}>{measure.status}</button></div>
                     </div>
                   </div>
                 </div>
               ))}
+              {!measures.length && <p className="rounded-xl bg-slate-50 p-4 text-center text-xs text-sub">目前沒有建議措施。</p>}
             </div>
-          </div>
-          <div className="mt-4 flex items-center justify-between"><CarouselDots n={MEASURES.length} i={c.i} set={c.set} /><ArrowBtns prev={c.prev} next={c.next} /></div>
-        </Card>
-
-        <Card className="p-6">
-          <h3 className="text-lg font-extrabold text-navy-900">部門影響分布</h3>
-          <p className="mt-1 text-xs text-sub">內規關聯數量 · 非風險評分</p>
-          <div className="mt-5 space-y-4">
-            {deptCount.map((d) => <div key={d.d}><div className="mb-1.5 flex justify-between text-[13px]"><b>{d.d}</b><span className="num font-bold" style={{ color: d.color }}>{d.n} 件</span></div><Bar value={(d.n / 3) * 100} color={d.color} h="h-2.5" /></div>)}
-          </div>
-          <p className="mt-5 text-xs leading-relaxed text-sub">同一內規可同時關聯多個部門，作數不等於不同部門的負擔。</p>
-          <GhostBtn onClick={() => go("heat")} className="mt-4"><ClipboardList size={14} />查看風險熱度圖</GhostBtn>
-        </Card>
+          </Card>
+        </div>
       </div>
     </>
   );
