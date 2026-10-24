@@ -20,12 +20,12 @@ export interface Reg {
 export const TOPICS = ["防制洗錢", "消費者保護", "資訊安全", "授信管理", "個資保護"];
 export const DEPTS = ["營運部", "法遵部", "資訊部", "風控部", "客服部", "授信部"];
 export const INDUSTRIES = [
-  { id: "bank", name: "銀行業", desc: "存放款、授信、財管", color: "#1b59f8" },
-  { id: "ins", name: "保險業", desc: "壽險、產險、再保", color: "#0e9fb3" },
-  { id: "sec", name: "證券期貨", desc: "經紀、承銷、自營", color: "#7c5cfc" },
-  { id: "trust", name: "投信投顧", desc: "基金、全權委託", color: "#e8890c" },
-  { id: "pay", name: "電子支付", desc: "支付、儲值、跨境", color: "#0f9d6b" },
-  { id: "fhc", name: "金融控股", desc: "集團合規與監理", color: "#e5484d" },
+  { id: "bank", name: "銀行業", desc: "存放款、授信、財管", color: "#061C2A" },
+  { id: "ins", name: "保險業", desc: "壽險、產險、再保", color: "#285164" },
+  { id: "sec", name: "證券期貨", desc: "經紀、承銷、自營", color: "#153A4B" },
+  { id: "trust", name: "投信投顧", desc: "基金、全權委託", color: "#8A6737" },
+  { id: "pay", name: "電子支付", desc: "支付、儲值、跨境", color: "#9B7540" },
+  { id: "fhc", name: "金融控股", desc: "集團合規與監理", color: "#A9854D" },
 ];
 
 export const REGS: Reg[] = [
@@ -182,7 +182,7 @@ export const DIFF_SETS: Record<string, DiffSet> = {
     }],
     insights: [
       { t: "回覆期限縮短", d: "申訴回覆期限由三十日縮短為二十日，複雜案件須先通知再延長。", ref: "第 7 條", color: "#e5484d" },
-      { t: "新增案件追蹤資訊", d: "受理時應提供案件編號及聯絡方式，方便客戶追蹤進度。", ref: "第 7 條", color: "#1b59f8" },
+      { t: "新增案件追蹤資訊", d: "受理時應提供案件編號及聯絡方式，方便客戶追蹤進度。", ref: "第 7 條", color: "#10243A" },
     ],
   },
   "REG-2026-012": {
@@ -208,7 +208,7 @@ export const DIFF_SETS: Record<string, DiffSet> = {
     }],
     insights: [
       { t: "關係人案件加強把關", d: "新增利益衝突檢核，並要求非承辦單位覆核交易條件及核准程序。", ref: "第 5 條", color: "#e5484d" },
-      { t: "覆核責任分離", d: "覆核工作須與案件承辦職責區隔，降低利益衝突風險。", ref: "第 5 條", color: "#1b59f8" },
+      { t: "覆核責任分離", d: "覆核工作須與案件承辦職責區隔，降低利益衝突風險。", ref: "第 5 條", color: "#10243A" },
     ],
   },
   "REG-2026-010": {
@@ -267,7 +267,7 @@ export const DIFF_SETS: Record<string, DiffSet> = {
     }],
     insights: [
       { t: "報告提報改為半年", d: "稽核報告至少每半年提報一次，重大缺失則須即時呈報。", ref: "第 11 條", color: "#e8890c" },
-      { t: "查核頻率依風險調整", d: "稽核單位應依風險程度安排查核，並追蹤缺失改善是否完成。", ref: "第 11 條", color: "#1b59f8" },
+      { t: "查核頻率依風險調整", d: "稽核單位應依風險程度安排查核，並追蹤缺失改善是否完成。", ref: "第 11 條", color: "#10243A" },
     ],
   },
   "REG-2026-006": {

@@ -50,10 +50,10 @@ function Sidebar({ onClose, onLogout }: { onClose?: () => void; onLogout: () => 
       <div className="relative mb-2 mt-6 px-2 text-[10px] font-semibold tracking-widest text-white/45">監理智慧工作台</div>
       <nav className="relative flex flex-col gap-1">
         {NAV.map(({ k, label, icon: I }) => (
-          <button key={k} onClick={() => { go(k); onClose?.(); }} className={cn("group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] font-medium transition", page === k ? "bg-brand text-white shadow-[0_8px_22px_rgba(27,89,248,0.45)]" : "text-white/72 hover:bg-white/10 hover:text-white")}>
+          <button key={k} onClick={() => { go(k); onClose?.(); }} className={cn("group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] font-medium transition", page === k ? "bg-accent text-navy-950 shadow-sm" : "text-white/72 hover:bg-white/10 hover:text-white")}>
             <I size={17} className="transition group-hover:scale-110" />
             <span className="flex-1 text-left">{label}</span>
-            {k === "kanban" && <span className="rounded-md bg-white/20 px-1.5 text-[11px] font-semibold">{pending}</span>}
+            {k === "kanban" && <span className={cn("rounded-md px-1.5 text-[11px] font-semibold", page === k ? "bg-navy-900/15" : "bg-white/20")}>{pending}</span>}
           </button>
         ))}
       </nav>

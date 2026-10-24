@@ -172,7 +172,7 @@ export default function Reports() {
             <button type="button" onClick={() => void copySummary()} className="no-print inline-flex items-center gap-2 rounded-xl border border-line bg-white px-4 py-2.5 text-sm font-semibold text-ink transition hover:-translate-y-0.5 hover:border-brand/40 hover:text-brand">
               {copiedSummary ? <Check size={16} className="text-ok" /> : <FileBarChart2 size={16} />}{copiedSummary ? "已複製摘要" : "複製管理摘要"}
             </button>
-            <button type="button" onClick={printReport} className="no-print inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(27,89,248,0.24)] transition hover:-translate-y-0.5 hover:bg-[#1148d4]">
+            <button type="button" onClick={printReport} className="no-print inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(16,36,58,0.2)] transition hover:-translate-y-0.5 hover:bg-navy-800">
               <Download size={16} />列印／另存 PDF
             </button>
             <button type="button" onClick={exportSpreadsheet} className="no-print inline-flex items-center gap-2 rounded-xl border border-line bg-white px-4 py-2.5 text-sm font-semibold text-ink transition hover:border-brand/40 hover:text-brand">
@@ -197,7 +197,7 @@ export default function Reports() {
       </Card>
 
       <Card className="print-break-inside animate-rise overflow-hidden">
-        <div className="flex flex-wrap items-start justify-between gap-4 bg-gradient-to-r from-navy-900 via-navy-800 to-[#2458ad] px-6 py-6 text-white md:px-8">
+        <div className="flex flex-wrap items-start justify-between gap-4 bg-gradient-to-r from-navy-900 via-navy-800 to-navy-700 px-6 py-6 text-white md:px-8">
           <div>
             <div className="flex items-center gap-2 text-xs font-semibold tracking-wide text-white/65"><FileBarChart2 size={15} />法遵管理摘要</div>
             <h2 className="mt-2 text-xl font-extrabold md:text-2xl">監理風險與因應進度</h2>
@@ -208,7 +208,7 @@ export default function Reports() {
 
         <div className="grid divide-y divide-line sm:grid-cols-3 sm:divide-x sm:divide-y-0">
           {[
-            { label: "追蹤法規異動", value: reportRegs.length, hint: "符合目前篩選條件", tone: "text-brand", color: "#1b59f8" },
+            { label: "追蹤法規異動", value: reportRegs.length, hint: "符合目前篩選條件", tone: "text-brand", color: "#10243A" },
             { label: "高風險法規", value: highRiskRegs.length, hint: "建議優先檢視", tone: "text-danger", color: "#e5484d" },
             { label: "未完成任務", value: openTasks.length, hint: `${reportTasks.length - openTasks.length} 項已完成`, tone: "text-warn", color: "#e8890c" },
           ].map((metric, index) => (

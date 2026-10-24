@@ -43,7 +43,7 @@ export function PageHeader({ title, sub, action, className }: { title: string; s
 
 export function PrimaryBtn({ children, onClick, className, disabled }: { children: ReactNode; onClick?: () => void; className?: string; disabled?: boolean }) {
   return (
-    <button onClick={onClick} disabled={disabled} className={cn("inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(27,89,248,0.28)] transition hover:-translate-y-0.5 hover:bg-[#1148d4] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0", className)}>
+    <button onClick={onClick} disabled={disabled} className={cn("inline-flex items-center gap-2 rounded-xl border border-accent/70 bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-[0_5px_14px_rgba(6,28,42,0.16)] transition hover:-translate-y-0.5 hover:bg-navy-800 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0", className)}>
       {children}
     </button>
   );
@@ -246,7 +246,7 @@ export function CountUp({ to, pad = 0, suffix = "", ms = 900 }: { to: number; pa
   return <>{String(v).padStart(pad, "0")}{suffix}</>;
 }
 
-export function Bar({ value, color = "#1b59f8", h = "h-2" }: { value: number; color?: string; h?: string }) {
+export function Bar({ value, color = "#10243A", h = "h-2" }: { value: number; color?: string; h?: string }) {
   const [w, setW] = useState(0);
   useEffect(() => { const t = setTimeout(() => setW(value), 60); return () => clearTimeout(t); }, [value]);
   return (

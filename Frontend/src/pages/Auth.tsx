@@ -5,10 +5,10 @@ import { ArrowBtns, CarouselDots, Marquee, cn, useCarousel } from "../ui";
 import { useStore } from "../store";
 
 const SLIDES = [
-  { k: "01", t: "法規異動，即時掌握", d: "自動蒐集主管機關公告，AI 解析重點並標註風險等級。", c: "#5b8dff" },
-  { k: "02", t: "新舊條文，一眼對照", d: "逐條標示新增、刪除與修改，快速理解修訂核心。", c: "#2ee6a6" },
-  { k: "03", t: "影響到內規與部門", d: "自動映射受影響內規，並產出建議因應措施與信心程度。", c: "#ffb454" },
-  { k: "04", t: "從複核到結案的閉環", d: "待辦看板、人工複核、稽核軌跡，讓每次決策有跡可循。", c: "#b69cff" },
+  { k: "01", t: "法規異動，即時掌握", d: "自動蒐集主管機關公告，AI 解析重點並標註風險等級。", c: "#D6C1A6" },
+  { k: "02", t: "新舊條文，一眼對照", d: "逐條標示新增、刪除與修改，快速理解修訂核心。", c: "#A9B8C3" },
+  { k: "03", t: "影響到內規與部門", d: "自動映射受影響內規，並產出建議因應措施與信心程度。", c: "#B99A78" },
+  { k: "04", t: "從複核到結案的閉環", d: "待辦看板、人工複核、稽核軌跡，讓每次決策有跡可循。", c: "#E2D8C8" },
 ];
 const FILES = [["客戶審查作業辦法.pdf", "1.2 MB"], ["洗錢防制紀錄保存政策.docx", "380 KB"], ["委外服務監督作業程序.pdf", "910 KB"]];
 
@@ -68,7 +68,7 @@ export default function Auth({ onEnter }: { onEnter: () => void }) {
               <label className={field}><Mail size={16} className="text-faint" /><input className={input} defaultValue="yichun.lin@demo-bank.tw" /></label>
               <label className={field}><Lock size={16} className="text-faint" /><input className={input} type="password" defaultValue="demo1234" /></label>
               <div className="flex items-center justify-between text-xs"><label className="flex items-center gap-2 text-sub"><input type="checkbox" defaultChecked className="accent-brand" />保持登入</label><button className="font-semibold text-brand">忘記密碼？</button></div>
-              <button onClick={onEnter} className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3.5 text-sm font-bold text-white shadow-[0_10px_24px_rgba(27,89,248,0.3)] transition hover:-translate-y-0.5">登入平台 <ArrowRight size={16} /></button>
+              <button onClick={onEnter} className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-3.5 text-sm font-bold text-white shadow-[0_10px_24px_rgba(16,36,58,0.24)] transition hover:-translate-y-0.5 hover:bg-navy-800">登入平台 <ArrowRight size={16} /></button>
               <div className="flex items-center gap-3 text-xs text-faint"><span className="h-px flex-1 bg-line" />或<span className="h-px flex-1 bg-line" /></div>
               <button onClick={onEnter} className="w-full rounded-xl border border-line py-3 text-sm font-semibold transition hover:border-brand hover:text-brand">以企業 SSO 登入（示範）</button>
             </div>
@@ -146,7 +146,7 @@ export default function Auth({ onEnter }: { onEnter: () => void }) {
                   const firstIndustryRegulation = regulationsForIndustries(picked)[0];
                   if (firstIndustryRegulation) setRegId(firstIndustryRegulation.id);
                   onEnter();
-                }} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-bold text-white shadow-[0_10px_24px_rgba(27,89,248,0.3)] transition hover:-translate-y-0.5">
+                }} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand py-3 text-sm font-bold text-white shadow-[0_10px_24px_rgba(16,36,58,0.24)] transition hover:-translate-y-0.5 hover:bg-navy-800">
                   {step < 2 ? "下一步" : files.length ? "完成並進入平台" : "略過並進入平台"} {step < 2 ? <ArrowRight size={16} /> : <FileUp size={16} />}
                 </button>
               </div>

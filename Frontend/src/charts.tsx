@@ -66,7 +66,7 @@ export function HBars({ data, max, suffix = "" }: { data: Slice[]; max?: number;
   );
 }
 
-export function LineArea({ labels, values, color = "#1b59f8", h = 150 }: { labels: string[]; values: number[]; color?: string; h?: number }) {
+export function LineArea({ labels, values, color = "#10243A", h = 150 }: { labels: string[]; values: number[]; color?: string; h?: number }) {
   const [hover, setHover] = useState<number | null>(null);
   const w = 420, pad = 22;
   const max = Math.max(...values, 1) * 1.15;

@@ -107,7 +107,7 @@ export default function Impact() {
   };
 
   const stats = [
-    { l: "關聯內規", n: impacts.length, c: "#1b59f8", icon: FileStack, s: `${impacts.filter((item) => item.level === "高影響").length} 件優先檢視` },
+    { l: "關聯內規", n: impacts.length, c: "#10243A", icon: FileStack, s: `${impacts.filter((item) => item.level === "高影響").length} 件優先檢視` },
     { l: "涉及部門", n: deptCount.length, c: "#7c5cfc", icon: Building2, s: deptCount.map((item) => item.d).join("、") || "尚無關聯部門" },
     { l: "待辦措施", n: measures.length, c: "#e8890c", icon: Target, s: `${relatedTasks.length} 件已同步至待辦` },
   ];
@@ -247,7 +247,7 @@ export default function Impact() {
                     <div className="min-w-0 flex-1">
                       <div className="text-[13px] font-bold leading-snug text-navy-900">{measure.t}</div>
                       <p className="mt-1 text-xs leading-relaxed text-sub">{measure.d}</p>
-                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2"><span className="text-[11px] text-faint">{measure.ref} · {measure.dept}</span><button onClick={() => createTask(measure)} disabled={Boolean(measure.existingTask)} className={cn("rounded-lg px-2.5 py-1 text-[11px] font-semibold", measure.existingTask ? "cursor-default bg-ok-soft text-ok" : "bg-brand text-white hover:bg-[#1148d4]")}>{measure.status}</button></div>
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2"><span className="text-[11px] text-faint">{measure.ref} · {measure.dept}</span><button onClick={() => createTask(measure)} disabled={Boolean(measure.existingTask)} className={cn("rounded-lg px-2.5 py-1 text-[11px] font-semibold", measure.existingTask ? "cursor-default bg-ok-soft text-ok" : "bg-brand text-white hover:bg-navy-800")}>{measure.status}</button></div>
                     </div>
                   </div>
                 </div>

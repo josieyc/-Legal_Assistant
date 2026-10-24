@@ -7,7 +7,7 @@ import { Badge, Bar, Card, CarouselDots, ArrowBtns, CountUp, GhostBtn, Modal, Pa
 import { Donut, HBars } from "../charts";
 
 const DEPTS = ["營運部", "資訊部", "法遵部", "客服部", "授信部", "風控部"];
-const DEPT_COLORS = ["#1b59f8", "#7c5cfc", "#0e9fb3", "#e8890c", "#0f9d6b", "#e5484d"];
+const DEPT_COLORS = ["#35516B", "#827889", "#648889", "#B9854D", "#557D68", "#e5484d"];
 const statusTone = (s: string) => (s === "生效中" ? "ok" : s === "修訂中" ? "warn" : "gray");
 const healthColor = (h: number) => (h >= 80 ? "#0f9d6b" : h >= 60 ? "#e8890c" : "#e5484d");
 let uid = 1000;
