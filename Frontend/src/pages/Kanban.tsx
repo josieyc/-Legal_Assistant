@@ -6,11 +6,11 @@ import { useStore } from "../store";
 
 const COLS = [
   { k: "todo" as const, label: "待確認", color: "#e8890c", tint: "#fff8ec" },
-  { k: "doing" as const, label: "處理中", color: "#1b59f8", tint: "#eff4ff" },
+  { k: "doing" as const, label: "處理中", color: "#35516B", tint: "#EDF0F3" },
   { k: "done" as const, label: "已完成", color: "#0f9d6b", tint: "#ecfaf3" },
 ];
 const priTone = (p: Pri) => (p === "高優先" ? "danger" : p === "中優先" ? "warn" : "ok");
-const avatarBg = ["#1b59f8", "#7c5cfc", "#0e9fb3", "#e8890c", "#0f9d6b", "#e5484d"];
+const avatarBg = ["#35516B", "#827889", "#648889", "#B9854D", "#557D68", "#e5484d"];
 
 export default function Kanban() {
   const { tasks, setTasks, toast, go, setRegId } = useStore();

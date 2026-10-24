@@ -67,7 +67,7 @@ function Stats({ eventCount, eventTrend, highRiskCount, pendingCount, completedC
 }) {
   const { go } = useStore();
   const items = [
-    { label: "法規風險事件", n: eventCount, pad: 0, sub: eventsLoading ? "正在讀取後端資料" : "依事件日期統計", color: "#1b59f8", pts: eventTrend, to: "diff" as const },
+    { label: "法規風險事件", n: eventCount, pad: 0, sub: eventsLoading ? "正在讀取後端資料" : "依事件日期統計", color: "#10243A", pts: eventTrend, to: "diff" as const },
     { label: "需優先關注", n: highRiskCount, pad: 2, sub: "風險分數達 8 分以上", color: "#e5484d", pts: eventTrend, to: "heat" as const },
     { label: "待辦事項", n: pendingCount, pad: 2, sub: "待複核、處理中或需重新分析", color: "#e8890c", pts: eventTrend, to: "kanban" as const },
     { label: "因應完成率", n: eventCount ? Math.round((completedCount / eventCount) * 100) : 0, pad: 0, suffix: "%", sub: `已完成 ${completedCount} / ${eventCount} 筆事件`, color: "#0f9d6b", pts: eventTrend, to: "impact" as const },
@@ -93,7 +93,7 @@ function Spotlight() {
   const list = regulationsForIndustries(industryIds).filter((r) => r.risk !== "低風險").slice(0, 5);
   const c = useCarousel(list.length, 5500);
   const r = list[c.i];
-  const grad = ["from-navy-800 to-navy-600", "from-[#4b2fb8] to-navy-800", "from-[#0b6b7a] to-navy-800", "from-[#a8431a] to-navy-900", "from-navy-700 to-[#0b5c46]"][c.i];
+  const grad = ["from-navy-800 to-navy-600", "from-navy-900 to-navy-700", "from-navy-800 to-[#43515F]", "from-[#776553] to-navy-900", "from-navy-700 to-navy-900"][c.i];
   return (
     <div className={cn("relative flex flex-col overflow-hidden rounded-3xl bg-gradient-to-br p-7 text-white transition-all duration-700", grad)} onMouseEnter={() => c.setPaused(true)} onMouseLeave={() => c.setPaused(false)}>
       <div className="relative flex items-center justify-between">
@@ -161,7 +161,7 @@ function PriorityQueue() {
               </div>
               <div className="flex shrink-0 gap-2">
                 <GhostBtn onClick={() => openPage(reg.id, "diff")}>1. 看差異</GhostBtn>
-                <button onClick={() => openPage(reg.id, "impact")} className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-3.5 py-2 text-[13px] font-semibold text-white transition hover:bg-[#1148d4]">2. 看影響<ArrowRight size={14} /></button>
+                <button onClick={() => openPage(reg.id, "impact")} className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-3.5 py-2 text-[13px] font-semibold text-white transition hover:bg-navy-800">2. 看影響<ArrowRight size={14} /></button>
               </div>
             </div>
           );
@@ -271,7 +271,7 @@ function Trend({ events }: { events: DashboardEvent[] }) {
     return { m: `${month.getMonth() + 1}月`, v: value };
   });
   const max = Math.max(...monthEntries.map((month) => month.v), 1);
-  const colors = ["#7c5cfc", "#0e9fb3", "#e8890c", "#1b59f8", "#0f9d6b", "#e5484d"];
+  const colors = ["#827889", "#648889", "#B9854D", "#35516B", "#557D68", "#e5484d"];
   return (
     <div className="flex flex-col">
       <div className="flex items-baseline justify-between">
@@ -311,7 +311,7 @@ function QaSection() {
         <p className="mt-2 text-sm text-white/70">快速查詢法規要求與影響，回答附逐條來源依據。</p>
         <form onSubmit={(event) => { event.preventDefault(); send(q); }} className="mt-5 flex w-full items-center gap-2 rounded-2xl bg-white p-2 pl-4 shadow-pop transition-shadow duration-200 focus-within:shadow-[0_0_0_4px_rgba(255,255,255,0.18)]">
           <input aria-label="輸入法規問題" value={q} onChange={(event) => setQ(event.target.value)} placeholder="輸入問題，例如：新版申訴回覆期限是多少？" className="min-w-0 flex-1 bg-transparent py-2 text-sm text-ink outline-none placeholder:text-faint" />
-          <button type="submit" disabled={!q.trim()} className="group/send inline-flex shrink-0 items-center gap-2 rounded-xl bg-brand px-3.5 py-2.5 text-xs font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#1148d4] hover:shadow-lg active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"><Send size={14} />詢問</button>
+          <button type="submit" disabled={!q.trim()} className="group/send inline-flex shrink-0 items-center gap-2 rounded-xl bg-brand px-3.5 py-2.5 text-xs font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-navy-800 hover:shadow-lg active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"><Send size={14} />詢問</button>
         </form>
         <div className="mt-4 flex flex-wrap gap-2">
           {suggestions.map((suggestion) => (
@@ -335,7 +335,7 @@ function ChartCarousel({ events }: { events: DashboardEvent[] }) {
   const topics = [...topicCounts.entries()]
     .sort(([, countA], [, countB]) => countB - countA)
     .slice(0, 6)
-    .map(([label, value], i) => ({ label, value, color: ["#7c5cfc", "#0e9fb3", "#e8890c", "#1b59f8", "#0f9d6b", "#e5484d"][i] }));
+    .map(([label, value], i) => ({ label, value, color: ["#827889", "#648889", "#B9854D", "#35516B", "#557D68", "#e5484d"][i] }));
   const risks = ["高風險", "中風險", "低風險"].map((label, i) => ({
     label,
     value: events.filter((event) => riskLabel(event.risk) === label).length,
@@ -543,7 +543,7 @@ export default function Dashboard() {
 
   return (
     <>
-      <PageHeader title="法規動態" sub="先處理尚未完成的監理要求，再查看近期法規異動。" className="compliance-page-header" />
+      <PageHeader title="法規動態" sub="先處理尚未完成的監理要求，再查看近期法規異動。" />
       <div className="flex flex-wrap items-center justify-between gap-3 border-y border-line py-3 text-sm">
         <div className="flex min-w-0 items-center gap-2">
           <CheckCircle2 size={17} className="shrink-0 text-ok" />
@@ -580,7 +580,7 @@ export default function Dashboard() {
             label: "監理事件",
             value: eventCount,
             tone: "text-brand",
-              color: "#1b59f8",
+              color: "#10243A",
               detail: "目前追蹤中的事件總數",
               ratio: eventCount ? 100 : 0,
           },
