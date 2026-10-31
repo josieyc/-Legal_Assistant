@@ -35,7 +35,7 @@ export default function Auth({ onEnter }: { onEnter: () => void }) {
         <div className="pointer-events-none absolute -left-20 bottom-10 h-72 w-72 rounded-full bg-violet/30 blur-3xl animate-float" />
         <div className="relative flex items-center gap-3">
           <div className="grid h-11 w-11 place-items-center rounded-xl border border-white/15 bg-white/10 text-[#D6C1A6]"><ShieldCheck size={22} strokeWidth={1.8} /></div>
-          <div className="leading-tight"><div className="text-lg font-semibold tracking-wide">RegInsight</div><div className="mt-1 text-xs tracking-wide text-white/55">法規遵循管理平台</div></div>
+          <div className="leading-tight"><div className="text-lg font-semibold tracking-wide">ForesLex</div><div className="mt-1 text-xs tracking-wide text-white/55">法瞰-以 AI 洞察法規，以先見掌握風險</div></div>
         </div>
         <div className="relative mt-auto mb-auto max-w-xl">
           <div key={car.i} className="animate-rise">

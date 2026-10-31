@@ -493,7 +493,7 @@ export default function QA() {
                 <div key={i} className="ml-auto max-w-[85%] animate-rise rounded-2xl rounded-tr-md bg-brand-soft px-4 py-3"><div className="mb-1 text-[11px] text-sub"><b className="text-ink">{userName}</b> · {m.time}</div><div className="text-sm">{m.text}</div></div>
               ) : (
                 <div key={i} className="animate-rise">
-                  <div className="mb-2 flex items-center gap-2 text-xs"><span className="grid h-6 w-6 place-items-center rounded-lg bg-gradient-to-br from-brand to-violet text-white"><Sparkles size={12} /></span><b>RegInsight 法規助手</b><span className="text-faint">{m.time} · {m.mode ?? "歷史範例"}</span></div>
+                  <div className="mb-2 flex items-center gap-2 text-xs"><span className="grid h-6 w-6 place-items-center rounded-lg bg-gradient-to-br from-brand to-violet text-white"><Sparkles size={12} /></span><b>ForesLex</b><span className="text-faint">{m.time} · {m.mode ?? "歷史範例"}</span></div>
                   <p className="whitespace-pre-wrap text-sm leading-relaxed">{m.text}</p>
                   {m.points && <div className="mt-3 space-y-3">{m.points.map((p) => <div key={p.h} className="border-l-2 border-brand/40 pl-3"><div className="text-[13px] font-bold text-navy-900">{p.h}</div><p className="mt-0.5 text-[13px] text-sub">{p.d}</p></div>)}</div>}
                   {m.warn && <div className="mt-3 flex gap-2 rounded-xl bg-warn-soft p-3 text-xs text-warn"><TriangleAlert size={14} className="mt-0.5 shrink-0" />{m.warn}</div>}
