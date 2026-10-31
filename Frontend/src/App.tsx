@@ -39,8 +39,10 @@ const NAV: { k: PageKey; label: string; icon: typeof Bell }[] = [
 // }
 
 function Sidebar({ onClose, onLogout }: { onClose?: () => void; onLogout: () => void }) {
-  const { page, go, tasks } = useStore();
+  const { page, go, tasks, userName } = useStore();
   const pending = tasks.filter((t) => t.col !== "done").length;
+  const displayName = userName.trim() || "使用者";
+  const initial = Array.from(displayName)[0];
   return (
     <aside className="relative flex h-full w-[236px] flex-col overflow-hidden bg-gradient-to-b from-navy-800 via-navy-900 to-navy-950 p-4 text-white">
       <div className="bg-grid pointer-events-none absolute inset-0 opacity-40 [mask-image:linear-gradient(to_bottom,black,transparent_60%)]" />
@@ -59,8 +61,8 @@ function Sidebar({ onClose, onLogout }: { onClose?: () => void; onLogout: () => 
       </nav>
       <div className="relative mt-auto space-y-3">
         <div className="flex items-center gap-2.5">
-          <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-brand to-violet text-sm font-bold text-white">林</div>
-          <div className="hidden leading-tight sm:block"><div className="text-[13px] font-semibold">林怡君</div><div className="text-[11px] text-white/60">法遵管理員</div></div>
+          <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-brand to-violet text-sm font-bold text-white">{initial}</div>
+          <div className="hidden leading-tight sm:block"><div className="text-[13px] font-semibold">{displayName}</div><div className="text-[11px] text-white/60">法遵管理員</div></div>
         </div>
         <div className="flex items-center justify-between px-2"><button className="flex items-center gap-2 text-xs text-white/60 hover:text-white"><HelpCircle size={14} />操作指南</button><button onClick={onLogout} className="flex items-center gap-1.5 text-xs text-white/60 hover:text-white"><LogOut size={14} />登出</button></div>
       </div>

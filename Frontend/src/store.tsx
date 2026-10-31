@@ -33,6 +33,8 @@ interface Store {
   setRegId: (id: string) => void;
   industryIds: string[];
   setIndustryIds: (ids: string[]) => void;
+  userName: string;
+  setUserName: (name: string) => void;
   ruleFocusId: string;
   setRuleFocusId: (id: string) => void;
   tasks: Task[];
@@ -58,6 +60,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [page, setPage] = useState<PageKey>(() => load<PageKey>("page", "dashboard"));
   const [regId, setRegId] = useState(() => load("reg", REGS[0].id));
   const [industryIds, setIndustryIds] = useState<string[]>(() => load("industries", ["bank"]));
+  const [userName, setUserName] = useState<string>(() => load("user-name", "林怡君"));
   const [ruleFocusId, setRuleFocusId] = useState("");
   const [rules, setRules] = useState<IRule[]>(() => {
     const saved = load<IRule[] | null>("demo-rules", null);
@@ -75,6 +78,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => save("page", page), [page]);
   useEffect(() => save("reg", regId), [regId]);
   useEffect(() => save("industries", industryIds), [industryIds]);
+  useEffect(() => save("user-name", userName), [userName]);
   useEffect(() => save("tasks", tasks), [tasks]);
   useEffect(() => save("demo-rules", rules), [rules]);
   useEffect(() => save("review-context", reviewContext), [reviewContext]);
@@ -120,7 +124,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const reg = REGS.find((r) => r.id === regId) ?? REGS[0];
 
   return (
-    <Ctx.Provider value={{ page, go, reg, setRegId, industryIds, setIndustryIds, ruleFocusId, setRuleFocusId, tasks, setTasks, rules, setRules, reviewContext, sendToReview, reviewAudit, addReviewAudit, toast, toasts, qaSeed, askQa, openSearch, setOpenSearch }}>
+    <Ctx.Provider value={{ page, go, reg, setRegId, industryIds, setIndustryIds, userName, setUserName, ruleFocusId, setRuleFocusId, tasks, setTasks, rules, setRules, reviewContext, sendToReview, reviewAudit, addReviewAudit, toast, toasts, qaSeed, askQa, openSearch, setOpenSearch }}>
       {children}
     </Ctx.Provider>
   );
