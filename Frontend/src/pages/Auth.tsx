@@ -13,11 +13,12 @@ const SLIDES = [
 const FILES = [["客戶審查作業辦法.pdf", "1.2 MB"], ["洗錢防制紀錄保存政策.docx", "380 KB"], ["委外服務監督作業程序.pdf", "910 KB"]];
 
 export default function Auth({ onEnter }: { onEnter: () => void }) {
-  const { toast, industryIds, setIndustryIds, setRegId } = useStore();
+  const { toast, industryIds, setIndustryIds, setRegId, setUserName } = useStore();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [step, setStep] = useState(0);
   const [picked, setPicked] = useState<string[]>(industryIds);
   const [files, setFiles] = useState<string[][]>([]);
+  const [name, setName] = useState("");
   const [drag, setDrag] = useState(false);
   const car = useCarousel(SLIDES.length, 4500);
   const s = SLIDES[car.i];
@@ -33,8 +34,8 @@ export default function Auth({ onEnter }: { onEnter: () => void }) {
         <div className="pointer-events-none absolute -right-24 top-1/3 h-96 w-96 rounded-full blur-3xl transition-colors duration-1000" style={{ background: s.c, opacity: 0.28 }} />
         <div className="pointer-events-none absolute -left-20 bottom-10 h-72 w-72 rounded-full bg-violet/30 blur-3xl animate-float" />
         <div className="relative flex items-center gap-3">
-          <div className="grid h-11 w-11 place-items-center rounded-xl bg-white text-navy-800"><ShieldCheck size={24} /></div>
-          <div><div className="text-lg font-bold">AI 法規與監理</div><div className="text-xs text-white/60">智慧平台 · RegInsight</div></div>
+          <div className="grid h-11 w-11 place-items-center rounded-xl border border-white/15 bg-white/10 text-[#D6C1A6]"><ShieldCheck size={22} strokeWidth={1.8} /></div>
+          <div className="leading-tight"><div className="text-lg font-semibold tracking-wide">RegInsight</div><div className="mt-1 text-xs tracking-wide text-white/55">法規遵循管理平台</div></div>
         </div>
         <div className="relative mt-auto mb-auto max-w-xl">
           <div key={car.i} className="animate-rise">
@@ -86,7 +87,7 @@ export default function Auth({ onEnter }: { onEnter: () => void }) {
               {step === 0 && (
                 <>
                   <div><h1 className="text-3xl font-extrabold text-navy-900">建立帳號</h1><p className="mt-1.5 text-sm text-sub">三步驟完成設定，開始追蹤法規異動。</p></div>
-                  <label className={field}><User size={16} className="text-faint" /><input className={input} placeholder="姓名" /></label>
+                  <label className={field}><User size={16} className="text-faint" /><input className={input} value={name} onChange={(event) => setName(event.target.value)} placeholder="姓名" autoComplete="name" /></label>
                   <label className={field}><Building2 size={16} className="text-faint" /><input className={input} placeholder="機構名稱" /></label>
                   <label className={field}><Mail size={16} className="text-faint" /><input className={input} placeholder="公司 Email" /></label>
                   <label className={field}><Lock size={16} className="text-faint" /><input className={input} type="password" placeholder="設定密碼" /></label>
@@ -135,6 +136,10 @@ export default function Auth({ onEnter }: { onEnter: () => void }) {
                 {step > 0 && <button onClick={() => setStep(step - 1)} className="rounded-xl border border-line px-5 py-3 text-sm font-semibold hover:border-brand">上一步</button>}
                 <button onClick={() => {
                   if (step < 2) {
+                    if (step === 0 && !name.trim()) {
+                      toast("請輸入姓名");
+                      return;
+                    }
                     if (step === 1 && !picked.length) {
                       toast("請至少選擇一項公司所屬產業");
                       return;
@@ -143,6 +148,7 @@ export default function Auth({ onEnter }: { onEnter: () => void }) {
                     return;
                   }
                   setIndustryIds(picked);
+                  setUserName(name.trim());
                   const firstIndustryRegulation = regulationsForIndustries(picked)[0];
                   if (firstIndustryRegulation) setRegId(firstIndustryRegulation.id);
                   onEnter();
